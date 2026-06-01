@@ -21,19 +21,86 @@ const STYLE_PROMPTS: Record<string, string> = {
 
 serve(async (req) => {
   try {
+    const url = new URL(req.url);
+    const pathSegment = url.pathname.split('/').pop();
+
+    // ==========================================
+    // CHECK-STATUS ENDPOINT: Active Kie.ai polling fallback
+    // ==========================================
+    if (pathSegment === 'check-status' && req.method === 'POST') {
+      const { task_id } = await req.json();
+      if (!task_id) {
+        return new Response(JSON.stringify({ error: 'Missing task_id' }), { status: 400 });
+      }
+
+      // First check if DB already has result (webhook might have worked)
+      const { data: existingJob } = await supabase
+        .from('ai_render_jobs')
+        .select('*')
+        .eq('kie_job_id', task_id)
+        .single();
+
+      if (existingJob && existingJob.status === 'success' && existingJob.result_b64) {
+        return new Response(JSON.stringify({ status: 'success', result_url: existingJob.result_b64 }), {
+          headers: { 'Content-Type': 'application/json' }, status: 200
+        });
+      }
+
+      // Active poll Kie.ai directly
+      const kieStatusRes = await fetch(`https://api.kie.ai/api/v1/jobs/result/${task_id}`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${kieApiKey}` }
+      });
+
+      const kieResult = await kieStatusRes.json();
+      console.log(`[CHECK-STATUS] task=${task_id} | kie response:`, JSON.stringify(kieResult));
+
+      if (kieResult.code === 200 && kieResult.data) {
+        const state = kieResult.data.state;
+        let finalImageUrl = '';
+
+        if (state === 'success' && kieResult.data.resultJson) {
+          const parsed = JSON.parse(kieResult.data.resultJson);
+          if (parsed.resultUrls && parsed.resultUrls.length > 0) {
+            finalImageUrl = parsed.resultUrls[0];
+          }
+        }
+
+        // Update DB so normal polling picks it up too
+        if (state === 'success' || state === 'failed') {
+          await supabase
+            .from('ai_render_jobs')
+            .update({ status: state, result_b64: finalImageUrl })
+            .eq('kie_job_id', task_id);
+        }
+
+        return new Response(JSON.stringify({ status: state, result_url: finalImageUrl }), {
+          headers: { 'Content-Type': 'application/json' }, status: 200
+        });
+      }
+
+      return new Response(JSON.stringify({ status: 'pending' }), {
+        headers: { 'Content-Type': 'application/json' }, status: 200
+      });
+    }
+
+    // ==========================================
+    // DEFAULT: GENERATE ENDPOINT
+    // ==========================================
     const { license_key, prompt, image_url, ref_url, mask_url, task_type, style, strength } = await req.json()
+
 
     // ==============================================================
     // 1. TENTUKAN HARGA, MODEL & RESOLUSI BERDASARKAN TASK TYPE
     // ==============================================================
     let selectedModel = "nano-banana-2"; 
-    let creditCost = 1;                         
+    let creditCost = 1;                           
     let targetRes = "1K";                       
 
     if (task_type === "render") {
       selectedModel = "nano-banana-2"; 
       creditCost = 1;                           
-      targetRes = "2K";                         
+      targetRes = "2K"; 
     } else if (task_type === "render_4k") {
       selectedModel = "nano-banana-2"; 
       creditCost = 2;                           
@@ -46,7 +113,7 @@ serve(async (req) => {
       selectedModel = "kling-2.6/image-to-video";
       creditCost = 3;
     } else if (task_type === "magic_swap") {
-      selectedModel = "nano-banana-2";
+      selectedModel = "google/nano-banana-edit";
       creditCost = 1;
       targetRes = "1K";
     } else if (task_type === "concept") {
@@ -56,7 +123,7 @@ serve(async (req) => {
     }
     
     // ==============================================================
-    // ⚡ PABRIK PERACIK PROMPT (VERSION 4: STRUCTURE + FIDELITY)
+    // ⚡ PABRIK PERACIK PROMPT (VERSION 7: HYBRID — V5 QUALITY + V6 STRUCTURE)
     // ==============================================================
     let finalKiePrompt = prompt; // Default buat Alchemist
 
@@ -71,164 +138,163 @@ serve(async (req) => {
           const styleBlock = (style && STYLE_PROMPTS[style]) ? `\nDESIGN STYLE: ${STYLE_PROMPTS[style]}` : "";
 
           // -------------------------------------------------------
-          // 🏠 CABANG 1: INTERIOR
+          // 🔒 UNIVERSAL CONSTRAINT BLOCKS
           // -------------------------------------------------------
-          if (pData.env === 'interior') {
-              basePrompt = `You are a professional interior photographer using a Sony A7III with a 24mm lens.
-AUTOMATIC MODE: Convert this SketchUp screenshot into a real interior photograph.
+          const cameraLockBlock = `
+[LOCK] CAMERA & GEOMETRY — NON-NEGOTIABLE:
+This image is a SketchUp architectural model. Your job is ONLY to add photorealistic surface quality, lighting, and environment. The camera viewpoint, every wall, floor, ceiling, window, door, furniture piece, and structural element must remain at the EXACT same pixel position, scale, proportion, and angle as the input. Any deviation = rejected output. Do NOT recompose, crop, zoom, pan, or alter perspective in any way.`;
 
-STRICT RULES:
-- DO NOT change building structure, geometry, proportions, or layout
-- DO NOT redesign architecture or move any element
-- KEEP everything exactly as original
-- LOCK camera position, perspective, and composition
+          const materialLockBlock = `
+[LOCK] MATERIAL IDENTITY:
+Every material visible in the input must keep its SAME category in the output. Wood must stay wood (add grain, pores, finish — but it stays wood). Concrete must stay concrete. Glass must stay glass. Metal must stay metal. You may upgrade the texture fidelity to photorealistic quality, but you must NEVER swap one material category for another (e.g., wood becoming painted wall, concrete becoming marble). Match the approximate color tone of each material from the input.`;
+
+          // -------------------------------------------------------
+          // CHECK: MANUAL MODE vs AUTO MODE
+          // -------------------------------------------------------
+          const isManualMode = pData.manual_prompt && pData.manual_prompt.trim() !== "";
+
+          if (isManualMode) {
+              // ===========================================
+              // ✍️ MANUAL MODE — User prompt is king
+              // ===========================================
+              finalKiePrompt = `${pData.manual_prompt}
+${cameraLockBlock}
+${materialLockBlock}
+
+PHOTOGRAPHIC OUTPUT:
+Style: photorealistic, 8k resolution, raw photo, highly detailed, octane render, global illumination, ray tracing, stunning natural lighting.
+Output must look like a real photograph — include subtle lens vignette, natural depth-of-field, film-like tonal response (lifted shadows, rolled highlights), and micro surface imperfections. If it looks like CGI, it is WRONG.`;
+
+          } else {
+              // ===========================================
+              // 🤖 AUTO MODE — Full prompt construction
+              // ===========================================
+
+              // -------------------------------------------------------
+              // 🏠 CABANG 1: INTERIOR
+              // -------------------------------------------------------
+              if (pData.env === 'interior') {
+                  basePrompt = `You are a professional interior photographer.
+TASK: Convert this SketchUp screenshot into a photorealistic interior photograph.
+Style: photorealistic, 8k resolution, raw photo, highly detailed, octane render, global illumination, ray tracing, stunning natural lighting, realistic material textures.
+${cameraLockBlock}
+${materialLockBlock}
 ${styleBlock}
 
-ANTI-CGI REALISM (CRITICAL)
-- Break perfect clean CG look
-- Add subtle dust, micro scratches, and natural wear
-- Avoid perfect sharp edges — slight edge softness
-- Surfaces must have real-world imperfections
-
-MATERIAL REALISM
+MATERIAL REALISM:
 - Concrete/Plaster: pores, uneven tone, slight discoloration
 - Wood: natural grain variation, slight color inconsistency, subtle finish reflection
 - Fabric: realistic weave texture, soft light interaction, natural drape
 - Glass: imperfect reflections (not mirror clean), subtle smudges
 - Metal: subtle roughness, fingerprints on polished surfaces
 - Stone/Tile: natural pattern variation, correct grout lines
-- Add light ambient occlusion in corners, under furniture, and ceiling edges
+- Ambient occlusion in corners, under furniture, and ceiling edges
 
 INTERIOR LIGHTING`;
 
-              if (pData.waktu === 'malam') {
-                  basePrompt += `
-- Warm ambient lighting from ceiling fixtures and table/floor lamps
-- Soft warm pools of light beneath each fixture (3200K)
+                  if (pData.waktu === 'malam') {
+                      basePrompt += ` — NIGHT:
+- Warm ambient lighting from ceiling fixtures, table and floor lamps (3200K)
+- Soft warm pools of light beneath each fixture
 - Deep blue twilight visible through windows
-- Cozy intimate atmosphere`;
-              } else if (pData.waktu === 'pagi') {
-                  basePrompt += `
+- Cozy intimate atmosphere with high contrast between lit and shadowed areas`;
+                  } else if (pData.waktu === 'pagi') {
+                      basePrompt += ` — MORNING (GOLDEN HOUR):
 - Warm golden morning sunlight entering through windows at low angle
 - Long soft shadows stretching across floors
-- Gentle warm color temperature (4500K golden hour)
-- Soft directional light with warm bounce`;
-              } else {
-                  basePrompt += `
+- Gentle warm color temperature (4200K golden hour)
+- Soft directional light with warm bounce off walls`;
+                  } else {
+                      basePrompt += ` — DAYTIME:
 - Bright natural daylight flooding through windows
 - Soft ambient bounce light filling the room evenly
 - Dappled shadows filtering through windows
 - Natural color temperature (5600K daylight)`;
-              }
+                  }
 
-              if (pData.lampu) basePrompt += `\n- Interior LED strips and accent lamps turned ON, adding warm pools of light`;
+                  if (pData.lampu) basePrompt += `\n- Interior LED strips and accent lamps turned ON, adding warm pools of light`;
 
-          // -------------------------------------------------------
-          // 🏢 CABANG 2: EXTERIOR
-          // -------------------------------------------------------
-          } else {
-              basePrompt = `This building is located in BSD, Indonesia.
-You are a professional architectural photographer using a Sony A7III with a 35mm lens.
-AUTOMATIC MODE: Convert this SketchUp screenshot into a real street-level photograph in BSD, Indonesia.
+                  basePrompt += `
 
-STRICT RULES:
-- DO NOT change building structure, geometry, proportions, or layout
-- DO NOT redesign architecture
-- DO NOT replace materials with completely different ones
-- KEEP everything exactly as original
-- LOCK camera position, perspective, and composition
+PHOTOGRAPHIC REALISM:
+- Subtle lens vignette, micro chromatic aberration on high-contrast edges
+- Natural depth-of-field on distant walls, film-like tonal response
+- Lifted blacks (never pure black), soft highlight rolloff (never blown white)
+- Dust particles in light beams, fabric weave detail, wood grain depth
+- Ambient occlusion in room corners, under furniture, ceiling edges
+- Correct light bounce from surfaces to adjacent walls`;
+
+              // -------------------------------------------------------
+              // 🏢 CABANG 2: EXTERIOR
+              // -------------------------------------------------------
+              } else {
+                  basePrompt = `This building is located in BSD City, Tangerang, Indonesia.
+You are a professional architectural photographer.
+TASK: Convert this SketchUp screenshot into a photorealistic street-level photograph in BSD City, Indonesia.
+Style: photorealistic, 8k resolution, raw photo, sharp focus, octane render, global illumination, hyper-realistic textures, beautiful cinematic sunlight, natural environment integration.
+${cameraLockBlock}
+${materialLockBlock}
 ${styleBlock}
 
-ANTI-CGI REALISM (CRITICAL)
-- Break perfect clean CG look
-- Add subtle dirt, dust, and weathering on surfaces
-- Slight stains and tonal variation
-- Avoid perfect sharp edges — slight edge softness
+ENVIRONMENT — BSD CITY, INDONESIA:
+- FOREGROUND FRAMING (MANDATORY): Large Trembesi trees (Samanea saman) with wide spreading canopy framing the left and/or right edge of the shot — branches and leaves partially overlapping the building facade
+- Background: lush Indonesian tropical vegetation, mixed green foliage
+- Ground: ${pData.waktu === 'malam' ? 'wet asphalt reflecting warm building lights' : 'slightly wet asphalt after light rain'}
+- Neighboring structures partially visible, softly obscured by Ketapang Kencana trees
+- All vegetation strictly green-toned (dark green, sage, olive) — NO colorful flowers
 
-BUILDING REALISM
-- Concrete: pores, uneven tone, slight discoloration, micro stains
-- Add very subtle rain streaks and aging marks
+BUILDING SURFACE REALISM:
+- Concrete: pores, uneven tone, slight discoloration, micro stains, subtle rain streaks
 - Wood: natural grain variation, slight color inconsistency
 - Glass: imperfect reflections (not mirror clean)
 - Metal: subtle roughness and patina
-- Add light ambient occlusion in corners and joints
-- Slight shadow buildup in wall intersections`;
+- Ambient occlusion in corners, wall joints, and under eaves`;
 
-              if (pData.waktu === 'malam') {
-                  basePrompt += `
+                  if (pData.waktu === 'malam') {
+                      basePrompt += `
 
-LIGHTING (NIGHT - BLUE HOUR / DUSK)
-- SKY MUST BE DARK: deep navy blue to near-black sky, NOT daytime blue
-- This is NIGHTTIME — if the sky looks bright or daytime, it is WRONG
+LIGHTING — NIGHT (BLUE HOUR / DUSK):
+- SKY: deep navy blue to near-black — this is NIGHTTIME, NOT daytime
 - Dramatic warm architectural uplighting on facade (3000K warm white)
 - All interior rooms glowing warmly through windows (visible warm light spill)
 - Street lamps casting warm pools of light on wet asphalt
-- Subtle ambient fill ONLY from dark twilight sky, NOT from sunlight
-- Wet asphalt reflecting warm building lights against dark surroundings
 - Deep contrast between warm light sources and dark shadows
 - Stars or faint clouds visible in the dark sky`;
-              } else if (pData.waktu === 'pagi') {
-                  basePrompt += `
+                  } else if (pData.waktu === 'pagi') {
+                      basePrompt += `
 
-LIGHTING (MORNING - GOLDEN HOUR)
+LIGHTING — MORNING (GOLDEN HOUR):
 - Warm golden morning sunlight from the east
-- Long dramatic shadows cast by building
-- Soft warm sky gradient
+- Long dramatic shadows cast by building and Trembesi trees
+- Soft warm sky gradient (golden to pale blue)
 - Slightly damp asphalt with morning dew reflections
-- Tree shadow patterns on ground`;
-              } else {
-                  basePrompt += `
+- Trembesi tree shadow patterns on ground and facade`;
+                  } else {
+                      basePrompt += `
 
-LIGHTING (DAYTIME - AFTER RAIN)
-- Soft daylight after rain (slightly diffused sunlight)
-- Tree shadow patterns (dappled shadows)
+LIGHTING — DAYTIME (AFTER RAIN):
+- Soft diffused daylight (slightly overcast / post-rain)
+- Trembesi tree shadow dappling on ground and walls
 - Realistic bounce light with mix of sunlit and shaded areas
 - Slightly wet asphalt with subtle puddle reflections`;
+                  }
+
+                  if (pData.lampu) basePrompt += `\n- Warm interior lights glowing softly through windows`;
+                  if (pData.kendaraan) basePrompt += `\n- ${pData.kendaraan}`;
+                  if (pData.vegetasi) basePrompt += `\n- ${pData.vegetasi}`;
+
+                  basePrompt += `
+
+PHOTOGRAPHIC REALISM:
+- Subtle lens vignette, micro chromatic aberration on high-contrast edges
+- Natural depth-of-field with soft background bokeh
+- Lifted shadows (never pure black), rolled-off highlights (never blown white)
+- Hairline cracks in concrete, micro dirt in grout lines, natural weathering
+- Correct caustics through glass, light bounce from ground to soffit
+- Faint tropical humidity haze in the distance`;
               }
 
-              basePrompt += `
-
-ENVIRONMENT
-- Foreground framing: Trembesi (Samanea saman) tree branches framing the shot
-- Background: lush Indonesian tropical vegetation
-- Ground: slightly wet asphalt after light rain
-- Neighboring houses partially visible, softly obscured by Ketapang Kencana trees
-- VEGETATION COLOR RULE: All plants and trees must be GREEN-toned only (dark green, sage, olive)
-- DO NOT add bougainvillea, frangipani, hibiscus, or any brightly-colored flowering plants
-- NO magenta, pink, purple, red, or orange flowers anywhere in the scene
-- Keep vegetation realistic and muted — typical BSD residential neighborhood plants`;
-              
-              if (pData.lampu) basePrompt += `\n- Warm interior lights glowing softly through windows`;
-              if (pData.kendaraan) basePrompt += `\n- ${pData.kendaraan}`;
-              if (pData.vegetasi) basePrompt += `\n- ${pData.vegetasi}`;
-          }
-
-          // -------------------------------------------------------
-          // 📸 CAMERA & FINAL
-          // -------------------------------------------------------
-          finalKiePrompt = basePrompt;
-
-          finalKiePrompt += `
-
-CAMERA (SONY A7III SIMULATION)
-- Full-frame sensor look
-- Slight natural lens distortion
-- Very subtle sensor noise
-- Natural depth of field
-
-COLOR & TONE
-- Natural photographic color grading
-- Slightly increased vibrance
-- Rich contrast without HDR look
-
-FINAL RESULT
-- Must look like a real photograph, NOT a render
-- If it looks like CGI, it is WRONG
-- If any geometry changes from the original, it is WRONG`;
-
-          // GABUNGIN PROMPT MANUAL USER
-          if (pData.manual_prompt && pData.manual_prompt.trim() !== "") {
-              finalKiePrompt += `\n\nCUSTOM DETAILS:\n${pData.manual_prompt}`;
+              finalKiePrompt = basePrompt;
           }
 
        } catch(err) {
@@ -271,14 +337,17 @@ FINAL RESULT
         sound: false
       };
     } else if (task_type === "magic_swap") {
-      // nano-banana-2 inpainting: needs mask + reference image
+      // For nano-banana-2 via standard createTask
+      const englishPrompt = (prompt.startsWith("change ") || prompt.startsWith("change material ")) ? prompt : `change ${prompt} in image A to ${prompt} in Image B`;
       inputData = {
-        image_input: [image_url],
-        prompt: finalKiePrompt,
-        resolution: targetRes
+        prompt: englishPrompt,
+        image_input: [image_url, ref_url],
+        output_format: "jpg",
+        aspect_ratio: "auto",
+        resolution: "1K"
       };
-      if (mask_url) inputData.mask_image = [mask_url];
-      if (ref_url) inputData.image_input_b = [ref_url];
+      
+      selectedModel = "nano-banana-2";
     } else {
       // Default: render / render_4k / concept / alchemist
       inputData = {
@@ -288,8 +357,13 @@ FINAL RESULT
         prompt: finalKiePrompt,
         resolution: targetRes
       };
+      // CAMERA FIX: Force controlled denoising. If user set denoise slider, use it.
+      // Otherwise default to 0.45 — enough for photorealism, strict enough to preserve camera angle.
+      // Kie.ai default is ~0.75 which is way too high and causes camera/geometry drift.
       if (strength !== null && strength !== undefined) {
         inputData.denoising_strength = parseFloat(strength) / 100.0;
+      } else {
+        inputData.denoising_strength = 0.45;
       }
     }
 
@@ -298,21 +372,27 @@ FINAL RESULT
       inputData.image_input_b = [ref_url];
     }
 
-    const kiePayload: any = {
+    let kiePayload: any = {};
+    const endpointUrl = "https://api.kie.ai/api/v1/jobs/createTask";
+
+    kiePayload = {
       model: selectedModel, 
       callBackUrl: webhookUrl,
       input: JSON.stringify(inputData)
     };
 
     console.log(`[APAYA ENGINE] Task: ${task_type} | Model: ${selectedModel} | Res: ${targetRes} | Style: ${style || 'none'} | Cost: ${creditCost}Cr`);
-    console.log(`[APAYA DEBUG] Prompt length: ${(finalKiePrompt || "").length} chars`);
     console.log(`[APAYA DEBUG] image_url: ${image_url ? image_url.substring(0, 80) : 'NULL'}`);
-    console.log(`[APAYA DEBUG] Payload structure: model=${selectedModel}, input=STRING(${JSON.stringify(inputData).length} chars)`);
+    if (task_type === "magic_swap") {
+      console.log(`[SWAP DEBUG] Using stitched image, Prompt: ${inputData.prompt}`);
+    }
+    console.log(`[APAYA DEBUG] kiePayload endpoint=${endpointUrl}`);
+
 
     // ==========================================
     // 5. SERVER SUPABASE NEMBAK KIE.AI
     // ==========================================
-    const kieRes = await fetch("https://api.kie.ai/api/v1/jobs/createTask", {
+    const kieRes = await fetch(endpointUrl, {
       method: "POST", 
       headers: { 
         "Content-Type": "application/json", 
@@ -322,7 +402,15 @@ FINAL RESULT
     });
 
     const kieData = await kieRes.json();
-    if (kieData.code !== 200 || !kieData.data?.taskId) {
+    console.log(`[KIE RESPONSE] status=${kieRes.status} | body=${JSON.stringify(kieData)}`);
+
+    // flux-kontext-pro returns { code:200, data:{ taskId } }
+    // jobs/createTask  returns { code:200, data:{ taskId } }
+    // Both should have code===200 and data.taskId — but guard carefully
+    const responseCode = kieData.code ?? kieRes.status;
+    const taskId = kieData.data?.taskId ?? kieData.taskId ?? null;
+
+    if (responseCode !== 200 || !taskId) {
         // Refund kredit kalau Kie.ai gagal
         await supabase.from('licenses').update({ credits: licenseData.credits }).eq('license_key', license_key);
         throw new Error("Kie.ai error: " + JSON.stringify(kieData));
@@ -330,12 +418,12 @@ FINAL RESULT
 
     // 6. SIMPAN TASK_ID KE TABEL ai_render_jobs BUAT DI-POLLING SAMA SKETCHUP
     await supabase.from('ai_render_jobs').insert([{ 
-        kie_job_id: kieData.data.taskId, 
+        kie_job_id: taskId, 
         status: 'pending' 
     }]);
 
     // 7. BALIKIN STATUS SUCCESS KE SKETCHUP BIAR MULAI POLLING
-    return new Response(JSON.stringify({ success: true, taskId: kieData.data.taskId }), { 
+    return new Response(JSON.stringify({ success: true, taskId: taskId }), { 
         headers: { "Content-Type": "application/json" }, 
         status: 200 
     });

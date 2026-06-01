@@ -1,3 +1,14 @@
-temp/*
-supabase/*
-supabase_edge_function/*
+# Ignore large media and backup folders
+VIDEO PROMO/
+OLD/
+Screenshot_UI/
+temp_rbz/
+apaya studio final/
+Apaya Studio Final backup/
+temp_v*.zip
+*.rbz
+*.zip
+
+# Ignore SketchUp temporary/gallery renders
+APAYA-STUDIO/Apaya_Gallery/
+APAYA-STUDIO/temp/
