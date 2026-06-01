@@ -1,0 +1,2176 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --bg-main: #0d0f14; --bg-panel: #161821; --border: #2a2d3d;
+            --text-main: #e2e4e9; --text-muted: #8b8d9c; --primary: #FACC15;
+            --orange: #FB923C; --secondary: #1f2235; --danger: #f87171;
+        }
+        * { box-sizing: border-box; }
+        body { background: var(--bg-main); color: var(--text-main); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-main); }
+        ::-webkit-scrollbar-thumb { background: #3a3d52; border-radius: 4px; }
+        
+        .left-tabs { width: 85px; background: var(--bg-panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding-top: 25px; gap: 15px; flex-shrink: 0; }
+        .tab-icon { width: 60px; height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; color: var(--text-muted); border-radius: 12px; transition: 0.3s; }
+        .tab-icon.active { color: var(--primary); border: 1px solid var(--primary); background: rgba(250, 204, 21, 0.05); }
+        .tab-icon i { font-size: 20px; }
+        .tab-icon span { font-size: 8px; font-weight: bold; margin-top: 6px; text-transform: uppercase; text-align: center; letter-spacing: 0.5px; }
+        
+        .sidebar { width: 280px; background: var(--bg-main); border-right: 1px solid var(--border); padding: 25px 20px; display: flex; flex-direction: column; flex-shrink: 0; overflow-y: hidden; }
+        .sidebar-title { font-size: 10px; font-weight: bold; color: var(--primary); text-transform: uppercase; margin-bottom: 12px; display: block; }
+        #sidebar-manager { display: flex; flex-direction: column; flex: 1; animation: fadeIn 0.3s ease; }
+        #sidebar-concept { display: none; flex-direction: column; flex: 1; min-height: 0; animation: fadeIn 0.3s ease; }
+        #sidebar-material { display: none; flex-direction: column; flex: 1; min-height: 0; animation: fadeIn 0.3s ease; }
+
+        .credit-container { background: rgba(250, 204, 21, 0.05); border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-bottom: 25px; text-align: center; transition: 0.3s;}
+        .credit-container:hover { border-color: var(--primary); background: rgba(250, 204, 21, 0.1); }
+        .credit-title { font-size: 10px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; display: block;}
+        .credit-balance { font-size: 28px; font-weight: 900; color: var(--primary); margin: 0; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-topup { width: 100%; background: linear-gradient(45deg, var(--orange), #ef4444); color: white; border: none; padding: 10px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; margin-top: 12px; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-topup:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(251, 146, 60, 0.4); }
+
+        .ratio-box { background: var(--bg-panel); border: 1px solid var(--border); padding: 12px; border-radius: 8px; margin-bottom: 20px; }
+        .ratio-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+        .ratio-input { background: var(--bg-main); border: 1px solid var(--border); color: white; padding: 6px; border-radius: 4px; width: 55px; text-align: center; font-size: 12px; outline: none; }
+        .ratio-input:focus { border-color: var(--primary); }
+        .btn-make { flex: 1; background: transparent; border: 1px solid var(--primary); color: var(--primary); padding: 6px; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold; transition: 0.2s;}
+        .btn-make:hover { background: var(--primary); color: black; }
+        
+        .btn-sidebar { width: 100%; padding: 10px; background: var(--bg-panel); border: 1px solid var(--border); color: var(--text-main); border-radius: 6px; text-align: left; margin-bottom: 8px; cursor: pointer; font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: 0.2s;}
+        .btn-sidebar:hover { border-color: var(--primary); color: var(--primary); }
+        .btn-load-scenes { justify-content: center; background: var(--primary); color: black; border: none; }
+        .btn-load-scenes:hover { background: var(--orange); color: black; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(251, 146, 60, 0.3); }
+
+        .thumb-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; padding-right: 5px; }
+        .thumb-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; padding: 8px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 10px;}
+        .thumb-card:hover { border-color: var(--primary); background: #1c1f2e; }
+        .thumb-card.active { border-color: var(--primary); background: rgba(250, 204, 21, 0.1); }
+        .thumb-img-box { width: 60px; height: 45px; background: var(--bg-main); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--text-muted); border: 1px solid #1f2235; }
+        .thumb-info { flex: 1; overflow: hidden; }
+        .thumb-name { font-size: 11px; font-weight: bold; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; margin-bottom: 4px;}
+
+        .main-container { flex: 1; display: flex; flex-direction: column; padding: 25px; overflow: hidden; position: relative; }
+        .tab-content { display: none; height: 100%; flex-direction: column; animation: fadeIn 0.3s ease; }
+        .tab-content.active { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .table-container { flex: 1; overflow-y: auto; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 15px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #13141c; color: var(--primary); font-size: 10px; padding: 12px; text-align: left; position: sticky; top: 0; z-index: 5;}
+        td { padding: 12px; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--text-main); }
+        tr:hover { background: rgba(250, 204, 21, 0.05); }
+
+        .clear-icon { display: none; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-muted); transition: 0.2s; font-size: 14px;}
+        .clear-icon:hover { color: var(--primary); }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; color: black; }
+        .badge.landscape { background: var(--primary); }
+        .badge.portrait { background: var(--orange); }
+        .icon-btn { background: transparent; border: 1px solid var(--border); width: 30px; height: 30px; border-radius: 4px; color: var(--text-muted); cursor:pointer; margin-right: 4px; transition:0.2s;}
+        .icon-btn:hover { color: var(--primary); border-color: var(--primary); }
+        .icon-btn.delete:hover { color: var(--danger); border-color: var(--danger); }
+
+        .bottom-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) 300px; gap: 20px; height: 260px; flex-shrink: 0;}
+        .panel { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; }
+        
+        .mode-grid { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); gap: 10px; flex: 1; min-height: 0;}
+        .mode-box { border: 1px solid var(--border); border-radius: 6px; padding: 10px; text-align: center; cursor: pointer; background: var(--bg-main); position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: 0.2s;}
+        .mode-box.active { background: rgba(250, 204, 21, 0.15); border-color: var(--primary); }
+        .mode-box input { position: absolute; opacity: 0; }
+        .mode-box i { font-size: 20px; margin-bottom: 5px; color: var(--text-muted); transition: 0.2s;}
+        .mode-box.active i { color: var(--primary); }
+        .mode-box span { font-size: 10px; font-weight: bold; }
+
+        .res-grid { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); gap: 10px; flex: 1; min-height: 0;}
+        .res-card { background: var(--bg-main); border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; padding: 10px 0; min-height: 0;}
+        .res-card.active { border-color: var(--primary); background: rgba(250, 204, 21, 0.1); }
+        .res-card .label { font-weight: 900; font-size: 18px; color: var(--text-muted); transition: 0.2s;}
+        .res-card.active .label { color: var(--primary); }
+        .res-card .pixels { font-size: 10px; font-family: monospace; color: var(--text-muted); margin-top: 5px; }
+
+        .btn-export { width: 100%; background: var(--primary); color: #000; padding: 15px; font-weight: 900; border-radius: 8px; border: none; cursor: pointer; margin-top: auto; font-size: 14px; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 10px;}
+        .btn-export:hover { background: var(--orange); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(251, 146, 60, 0.4); }
+        .btn-danger { background: var(--danger); }
+        .btn-danger:hover { background: #ef4444; box-shadow: 0 5px 15px rgba(248, 113, 113, 0.4); }
+
+        /* FORM & AI ELEMENTS */
+        .ai-grid { display: grid; grid-template-columns: 350px 1fr; gap: 20px; height: 100%; min-height: 0;}
+        .ai-form { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden;}
+        
+        .env-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px;}
+        .env-box { background: var(--bg-main); border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; padding: 15px 0;}
+        .env-box.active { border-color: var(--primary); background: rgba(250, 204, 21, 0.1); }
+        .env-box i { font-size: 24px; color: var(--text-muted); margin-bottom: 8px; transition: 0.2s; }
+        .env-box.active i { color: var(--primary); }
+        .env-box span { font-size: 11px; font-weight: 900; color: var(--text-muted); transition: 0.2s;}
+        .env-box.active span { color: var(--primary); }
+
+        .custom-select { width: 100%; background: var(--bg-main); border: 1px solid var(--border); color: white; padding: 12px 15px; border-radius: 6px; font-size: 13px; cursor: pointer; position: relative; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; transition: 0.2s;}
+        .custom-select:hover { border-color: #3a3d52; }
+        .dropdown-list { display: none; position: absolute; top: calc(100% + 5px); left: 0; right: 0; background: var(--bg-panel); border: 1px solid var(--primary); border-radius: 6px; z-index: 100; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5);}
+        .dropdown-list.show { display: block; animation: fadeIn 0.2s ease;}
+        .dropdown-item { padding: 12px 15px; font-size: 13px; color: var(--text-main); transition: 0.2s; }
+        .dropdown-item:hover { background: rgba(251, 146, 60, 0.15); color: var(--primary); }
+
+        .prompt-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .prompt-switch-small { display: flex; background: var(--bg-main); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+        .switch-btn-small { padding: 5px 12px; font-size: 10px; font-weight: bold; cursor: pointer; color: var(--text-muted); transition: 0.2s; }
+        .switch-btn-small.active { background: var(--primary); color: black; }
+
+        .ai-input { width: 100%; background: var(--bg-main); border: 1px solid var(--border); color: white; padding: 12px; border-radius: 6px; font-size: 13px; outline: none; margin-bottom: 20px; font-family: inherit; transition: 0.2s; resize: vertical;}
+        .ai-input:focus { border-color: var(--primary); }
+        .ai-input:disabled { opacity: 0.4; cursor: not-allowed; }
+        
+        .btn-render-4k:hover { background: linear-gradient(135deg, #d97706, #dc2626); transform: translateY(-2px); box-shadow: 0 5px 20px rgba(239, 68, 68, 0.4); }
+        .btn-render-4k i { filter: drop-shadow(0 0 3px rgba(255,255,255,0.3)); }
+
+        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+        .toast { pointer-events: auto; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; display: flex; align-items: center; gap: 12px; min-width: 300px; box-shadow: 0 8px 30px rgba(0,0,0,0.5); animation: toastIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); backdrop-filter: blur(10px); }
+        .toast.toast-out { animation: toastOut 0.3s ease forwards; }
+        .toast i { font-size: 18px; flex-shrink: 0; }
+        .toast-body { flex: 1; }
+        .toast-title { font-size: 12px; font-weight: 900; color: white; margin-bottom: 2px; }
+        .toast-desc { font-size: 11px; color: var(--text-muted); }
+        @keyframes toastIn { from { opacity: 0; transform: translateX(100px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes toastOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(100px); } }
+
+        @keyframes creditPulse { 0% { transform: scale(1); } 50% { transform: scale(1.15); color: #f87171; } 100% { transform: scale(1); } }
+        .credit-pulse { animation: creditPulse 0.5s ease; }
+        .btn-export:disabled, .btn-render-2k:disabled, .btn-render-4k:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+        .tab-content { transition: opacity 0.2s ease; }
+
+        .ai-preview-box { background: var(--bg-main); border: 1px dashed var(--border); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; flex:1;}
+        .ba-container { position: relative; width: 100%; height: 100%; display: none; overflow: hidden; border-radius: 6px; background: #000;}
+        .ba-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; }
+        
+        #img-after, #r-img-after { clip-path: inset(0 0 0 50%); } 
+        
+        .ba-slider { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; z-index: 10; cursor: ew-resize; margin: 0; padding: 0; box-sizing: border-box;}
+        .ba-handle { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: transparent; z-index: 5; pointer-events: none; border-left: 2px solid var(--primary); }
+        .ba-handle::after { content: '\21C4'; position: absolute; top: 50%; left: 0; transform: translate(-50%, -50%); background: var(--primary); color: black; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; box-shadow: 0 0 10px rgba(0,0,0,0.5);}
+
+        .loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 50; display: none; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(3px); border-radius: 6px;}
+        .loading-overlay i { font-size: 50px; color: var(--primary); margin-bottom: 15px; }
+        .loading-overlay span { color: var(--primary); font-weight: bold; font-size: 15px; text-align: center; letter-spacing: 1px; }
+
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(13, 15, 20, 0.9); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
+        .modal-box { background: var(--bg-panel); padding: 30px; border-radius: 12px; border: 1px solid var(--primary); text-align: center; width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+        .modal-box-large { width: 85%; max-width: 1200px; height: 85vh; display: flex; flex-direction: column; padding: 25px; }
+
+        .modal-box.danger-box { border-color: var(--danger); }
+        .modal-box.warning-box { border-color: var(--primary); }
+        .input-box-modal { width: 100%; background: var(--bg-main); border: 1px solid var(--border); color: white; padding: 12px; border-radius: 6px; font-size: 14px; outline: none; margin-bottom: 20px; text-align: center; }
+        .input-box-modal:focus { border-color: var(--primary); }
+        .progress-track { width: 100%; background: #0d0f14; height: 12px; border-radius: 6px; margin: 20px 0; overflow: hidden; border: 1px solid var(--border); }
+        .progress-fill { width: 0%; height: 100%; background: var(--primary); transition: width 0.3s; }
+
+        .mat-canvas-container { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #000; overflow: hidden; border-radius: 6px;}
+        #mat-preview-img { max-width: 100%; max-height: 100%; object-fit: contain; pointer-events: none; user-select: none; }
+        #mat-canvas { position: absolute; z-index: 10; cursor: crosshair; }
+        .mat-toolbar { background: var(--bg-main); border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 15px; }
+
+        @keyframes spinIn { from { transform: translateY(-50%) rotate(-180deg) scale(0.5); opacity: 0; } to { transform: translateY(-50%) rotate(0) scale(1); opacity: 1; } }
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --bg-main: #0d0f14; --bg-panel: #161821; --border: #2a2d3d;
+            --text-main: #e2e4e9; --text-muted: #8b8d9c; --primary: #FACC15;
+            --orange: #FB923C; --secondary: #1f2235; --danger: #f87171;
+        }
+        * { box-sizing: border-box; }
+        body { background: var(--bg-main); color: var(--text-main); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-main); }
+        ::-webkit-scrollbar-thumb { background: #3a3d52; border-radius: 4px; }
+        
+        .left-tabs { width: 85px; background: var(--bg-panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding-top: 25px; gap: 15px; flex-shrink: 0; }
+        .tab-icon { width: 60px; height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; color: var(--text-muted); border-radius: 12px; transition: 0.3s; }
+        .tab-icon.active { color: var(--primary); border: 1px solid var(--primary); background: rgba(250, 204, 21, 0.05); }
+        .tab-icon i { font-size: 20px; }
+        .tab-icon span { font-size: 8px; font-weight: bold; margin-top: 6px; text-transform: uppercase; text-align: center; letter-spacing: 0.5px; }
+        
+        .sidebar { width: 280px; background: var(--bg-main); border-right: 1px solid var(--border); padding: 25px 20px; display: flex; flex-direction: column; flex-shrink: 0; overflow-y: hidden; }
+        .sidebar-title { font-size: 10px; font-weight: bold; color: var(--primary); text-transform: uppercase; margin-bottom: 12px; display: block; }
+        #sidebar-manager { display: flex; flex-direction: column; flex: 1; animation: fadeIn 0.3s ease; }
+        #sidebar-concept { display: none; flex-direction: column; flex: 1; min-height: 0; animation: fadeIn 0.3s ease; }
+        #sidebar-material { display: none; flex-direction: column; flex: 1; min-height: 0; animation: fadeIn 0.3s ease; }
+
+        .credit-container { background: rgba(250, 204, 21, 0.05); border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-bottom: 25px; text-align: center; transition: 0.3s;}
+        .credit-container:hover { border-color: var(--primary); background: rgba(250, 204, 21, 0.1); }
+        .credit-title { font-size: 10px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; display: block;}
+        .credit-balance { font-size: 28px; font-weight: 900; color: var(--primary); margin: 0; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-topup { width: 100%; background: linear-gradient(45deg, var(--orange), #ef4444); color: white; border: none; padding: 10px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; margin-top: 12px; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-topup:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(251, 146, 60, 0.4); }
+
+        .ratio-box { background: var(--bg-panel); border: 1px solid var(--border); padding: 12px; border-radius: 8px; margin-bottom: 20px; }
+        .ratio-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+        .ratio-input { background: var(--bg-main); border: 1px solid var(--border); color: white; padding: 6px; border-radius: 4px; width: 55px; text-align: center; font-size: 12px; outline: none; }
+        .ratio-input:focus { border-color: var(--primary); }
+        .btn-make { flex: 1; background: transparent; border: 1px solid var(--primary); color: var(--primary); padding: 6px; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold; transition: 0.2s;}
+        .btn-make:hover { background: var(--primary); color: black; }
+        
+        .btn-sidebar { width: 100%; padding: 10px; background: var(--bg-panel); border: 1px solid var(--border); color: var(--text-main); border-radius: 6px; text-align: left; margin-bottom: 8px; cursor: pointer; font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: 0.2s;}
+        .btn-sidebar:hover { border-color: var(--primary); color: var(--primary); }
+        .btn-load-scenes { justify-content: center; background: var(--primary); color: black; border: none; }
+        .btn-load-scenes:hover { background: var(--orange); color: black; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(251, 146, 60, 0.3); }
+
+        .thumb-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; padding-right: 5px; }
+        .thumb-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; padding: 8px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 10px;}
+        .thumb-card:hover { border-color: var(--primary); background: #1c1f2e; }
+        .thumb-card.active { border-color: var(--primary); background: rgba(250, 204, 21, 0.1); }
+        .thumb-img-box { width: 60px; height: 45px; background: var(--bg-main); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--text-muted); border: 1px solid #1f2235; }
+        .thumb-info { flex: 1; overflow: hidden; }
+        .thumb-name { font-size: 11px; font-weight: bold; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; margin-bottom: 4px;}
+
+        .main-container { flex: 1; display: flex; flex-direction: column; padding: 25px; overflow: hidden; position: relative; }
+        .tab-content { display: none; height: 100%; flex-direction: column; animation: fadeIn 0.3s ease; }
+        .tab-content.active { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .table-container { flex: 1; overflow-y: auto; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 15px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #13141c; color: var(--primary); font-size: 10px; padding: 12px; text-align: left; position: sticky; top: 0; z-index: 5;}
+        td { padding: 12px; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--text-main); }
+        tr:hover { background: rgba(250, 204, 21, 0.05); }
+
+        .clear-icon { display: none; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-muted); transition: 0.2s; font-size: 14px;}
+        .clear-icon:hover { color: var(--primary); }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; color: black; }
+        .badge.landscape { background: var(--primary); }
+        .badge.portrait { background: var(--orange); }
+        .icon-btn { background: transparent; border: 1px solid var(--border); width: 30px; height: 30px; border-radius: 4px; color: var(--text-muted); cursor:pointer; margin-right: 4px; transition:0.2s;}
+        .icon-btn:hover { color: var(--primary); border-color: var(--primary); }
+        .icon-btn.delete:hover { color: var(--danger); border-color: var(--danger); }
+
+        .bottom-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) 300px; gap: 20px; height: 260px; flex-shrink: 0;}
+        .panel { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; }
+        
+        .mode-grid { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); gap: 10px; flex: 1; min-height: 0;}
+        .mode-box { border: 1px solid var(--border); border-radius: 6px; padding: 10px; text-align: center; cursor: pointer; background: var(--bg-main); position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: 0.2s;}
+        .mode-box.active { background: rgba(250, 204, 21, 0.15); border-color: var(--primary); }
+        .mode-box input { position: absolute; opacity: 0; }
+        .mode-box i { font-size: 20px; margin-bottom: 5px; color: var(--text-muted); transition: 0.2s;}
+        .mode-box.active i { color: var(--primary); }
+        .mode-box span { font-size: 10px; font-weight: bold; }
+
+        .res-grid { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); gap: 10px; flex: 1; min-height: 0;}
+        .res-card { background: var(--bg-main); border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; padding: 10px 0; min-height: 0;}
+        .res-card.active { border-color: var(--primary); background: rgba(250, 204, 21, 0.1); }
+        .res-card .label { font-weight: 900; font-size: 18px; color: var(--text-muted); transition: 0.2s;}
+        .res-card.active .label { color: var(--primary); }
+        .res-card .pixels { font-size: 10px; font-family: monospace; color: var(--text-muted); margin-top: 5px; }
+
+        .btn-export { width: 100%; background: var(--primary); color: #000; padding: 15px; font-weight: 900; border-radius: 8px; border: none; cursor: pointer; margin-top: auto; font-size: 14px; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 10px;}
+        .btn-export:hover { background: var(--orange); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(251, 146, 60, 0.4); }
+        .btn-danger { background: var(--danger); }
+        .btn-danger:hover { background: #ef4444; box-shadow: 0 5px 15px rgba(248, 113, 113, 0.4); }
+
+        /* FORM & AI ELEMENTS */
+        .ai-grid { display: grid; grid-template-columns: 350px 1fr; gap: 20px; height: 100%; min-height: 0;}
+        .ai-form { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden;}
+        
+        .env-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px;}
+        .env-box { background: var(--bg-main); border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; padding: 15px 0;}
+        .env-box.active { border-color: var(--primary); background: rgba(250, 204, 21, 0.1); }
+        .env-box i { font-size: 24px; color: var(--text-muted); margin-bottom: 8px; transition: 0.2s; }
+        .env-box.active i { color: var(--primary); }
+        .env-box span { font-size: 11px; font-weight: 900; color: var(--text-muted); transition: 0.2s;}
+        .env-box.active span { color: var(--primary); }
+
+        .custom-select { width: 100%; background: var(--bg-main); border: 1px solid var(--border); color: white; padding: 12px 15px; border-radius: 6px; font-size: 13px; cursor: pointer; position: relative; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; transition: 0.2s;}
+        .custom-select:hover { border-color: #3a3d52; }
+        .dropdown-list { display: none; position: absolute; top: calc(100% + 5px); left: 0; right: 0; background: var(--bg-panel); border: 1px solid var(--primary); border-radius: 6px; z-index: 100; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5);}
+        .dropdown-list.show { display: block; animation: fadeIn 0.2s ease;}
+        .dropdown-item { padding: 12px 15px; font-size: 13px; color: var(--text-main); transition: 0.2s; }
+        .dropdown-item:hover { background: rgba(251, 146, 60, 0.15); color: var(--primary); }
+
+        .prompt-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .prompt-switch-small { display: flex; background: var(--bg-main); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+        .switch-btn-small { padding: 5px 12px; font-size: 10px; font-weight: bold; cursor: pointer; color: var(--text-muted); transition: 0.2s; }
+        .switch-btn-small.active { background: var(--primary); color: black; }
+
+        .ai-input { width: 100%; background: var(--bg-main); border: 1px solid var(--border); color: white; padding: 12px; border-radius: 6px; font-size: 13px; outline: none; margin-bottom: 20px; font-family: inherit; transition: 0.2s; resize: vertical;}
+        .ai-input:focus { border-color: var(--primary); }
+        .ai-input:disabled { opacity: 0.4; cursor: not-allowed; }
+        
+        .btn-render-4k:hover { background: linear-gradient(135deg, #d97706, #dc2626); transform: translateY(-2px); box-shadow: 0 5px 20px rgba(239, 68, 68, 0.4); }
+        .btn-render-4k i { filter: drop-shadow(0 0 3px rgba(255,255,255,0.3)); }
+
+        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+        .toast { pointer-events: auto; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; display: flex; align-items: center; gap: 12px; min-width: 300px; box-shadow: 0 8px 30px rgba(0,0,0,0.5); animation: toastIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); backdrop-filter: blur(10px); }
+        .toast.toast-out { animation: toastOut 0.3s ease forwards; }
+        .toast i { font-size: 18px; flex-shrink: 0; }
+        .toast-body { flex: 1; }
+        .toast-title { font-size: 12px; font-weight: 900; color: white; margin-bottom: 2px; }
+        .toast-desc { font-size: 11px; color: var(--text-muted); }
+        @keyframes toastIn { from { opacity: 0; transform: translateX(100px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes toastOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(100px); } }
+
+        @keyframes creditPulse { 0% { transform: scale(1); } 50% { transform: scale(1.15); color: #f87171; } 100% { transform: scale(1); } }
+        .credit-pulse { animation: creditPulse 0.5s ease; }
+        .btn-export:disabled, .btn-render-2k:disabled, .btn-render-4k:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+        .tab-content { transition: opacity 0.2s ease; }
+
+        .ai-preview-box { background: var(--bg-main); border: 1px dashed var(--border); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; flex:1;}
+        .ba-container { position: relative; width: 100%; height: 100%; display: none; overflow: hidden; border-radius: 6px; background: #000;}
+        .ba-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; }
+        
+        #img-after, #r-img-after { clip-path: inset(0 0 0 50%); } 
+        
+        .ba-slider { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; z-index: 10; cursor: ew-resize; margin: 0; padding: 0; box-sizing: border-box;}
+        .ba-handle { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: transparent; z-index: 5; pointer-events: none; border-left: 2px solid var(--primary); }
+        .ba-handle::after { content: '\21C4'; position: absolute; top: 50%; left: 0; transform: translate(-50%, -50%); background: var(--primary); color: black; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; box-shadow: 0 0 10px rgba(0,0,0,0.5);}
+
+        .loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 50; display: none; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(3px); border-radius: 6px;}
+        .loading-overlay i { font-size: 50px; color: var(--primary); margin-bottom: 15px; }
+        .loading-overlay span { color: var(--primary); font-weight: bold; font-size: 15px; text-align: center; letter-spacing: 1px; }
+        .spin-logo { width: 60px; height: 60px; margin-bottom: 15px; animation: apayaSpin 2.4s ease-in-out infinite; }
+        @keyframes apayaSpin { 0% { transform: rotate(0deg) scale(0.7); opacity: 0.6; } 30% { transform: rotate(180deg) scale(1); opacity: 1; } 50% { transform: rotate(360deg) scale(1); opacity: 1; } 70% { transform: rotate(360deg) scale(0.7); opacity: 0.6; } 100% { transform: rotate(720deg) scale(0.7); opacity: 0.6; } }
+
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(13, 15, 20, 0.9); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
+        .modal-box { background: var(--bg-panel); padding: 30px; border-radius: 12px; border: 1px solid var(--primary); text-align: center; width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+        .modal-box-large { width: 85%; max-width: 1200px; height: 85vh; display: flex; flex-direction: column; padding: 25px; }
+
+        .modal-box.danger-box { border-color: var(--danger); }
+        .modal-box.warning-box { border-color: var(--primary); }
+        .input-box-modal { width: 100%; background: var(--bg-main); border: 1px solid var(--border); color: white; padding: 12px; border-radius: 6px; font-size: 14px; outline: none; margin-bottom: 20px; text-align: center; }
+        .input-box-modal:focus { border-color: var(--primary); }
+        .progress-track { width: 100%; background: #0d0f14; height: 12px; border-radius: 6px; margin: 20px 0; overflow: hidden; border: 1px solid var(--border); }
+        .progress-fill { width: 0%; height: 100%; background: var(--primary); transition: width 0.3s; }
+
+        .mat-canvas-container { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #000; overflow: hidden; border-radius: 6px;}
+        #mat-preview-img { max-width: 100%; max-height: 100%; object-fit: contain; pointer-events: none; user-select: none; }
+        #mat-canvas { position: absolute; z-index: 10; cursor: crosshair; }
+        .mat-toolbar { background: var(--bg-main); border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 15px; }
+
+        @keyframes spinIn { from { transform: translateY(-50%) rotate(-180deg) scale(0.5); opacity: 0; } to { transform: translateY(-50%) rotate(0) scale(1); opacity: 1; } }
+        @keyframes spinOut { from { transform: translateY(-50%) rotate(0) scale(1); opacity: 1; } to { transform: translateY(-50%) rotate(180deg) scale(0.5); opacity: 0; } }
+        .spin-in { animation: spinIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        .spin-out { animation: spinOut 0.3s cubic-bezier(0.6, -0.28, 0.735, 0.045) forwards; }
+        
+        #btn-validate-license { background: var(--primary); color: #000; font-weight: bold; border: none; transition: 0.2s; }
+        #btn-validate-license:active { background: var(--orange); color: white; transform: scale(0.98); }
+        
+        #btn-pricelist { background: var(--primary); color: #000; font-weight: bold; border: none; transition: 0.2s; }
+        #btn-pricelist:hover { background: var(--orange); color: white; transform: scale(0.98); }
+        
+        .ai-action-bar { display: flex; flex-direction: row; align-items: center; gap: 20px; }
+        .btn-action-top { background: var(--primary); border: none; color: #000; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; transition: 0.2s; font-size: 13px; display: flex; align-items: center; justify-content: center; padding: 0; }
+        .btn-action-top:hover { background: var(--orange); color: #000; transform: translateY(-1px); box-shadow: 0 3px 10px rgba(251, 146, 60, 0.4); }
+        
+        .apaya-toggle { -webkit-appearance: none; appearance: none; width: 38px; height: 20px; background: var(--bg-main); border: 1px solid var(--border); border-radius: 20px; position: relative; cursor: pointer; outline: none; transition: 0.3s; flex-shrink: 0; margin: 0; }
+        .apaya-toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: var(--text-muted); border-radius: 50%; transition: 0.3s; }
+        .apaya-toggle:checked { background: var(--primary); border-color: var(--primary); }
+        .apaya-toggle:checked::after { left: 20px; background: #000; }
+        .pkg-card:hover { transform: translateY(-3px); border-color: var(--primary) !important; background: rgba(251, 146, 60, 0.05) !important; }
+        .pkg-pro:hover { transform: translateY(-3px); border-color: var(--orange) !important; background: var(--orange) !important; color: white !important; }
+        .locked-feature { filter: grayscale(1); opacity: 0.5; }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+    <script>document.addEventListener('keydown',function(e){if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&(e.key==='I'||e.key==='i'))||(e.ctrlKey&&(e.key==='U'||e.key==='u'))){e.preventDefault();return false;}});</script>
+    <nav class="left-tabs">
+        <div class="tab-icon active" onclick="switchTab('tab-camera', this)"><i class="fa-solid fa-camera"></i><span>Camera</span></div>
+        <div class="tab-icon" onclick="switchTab('tab-render', this)"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Render</span></div>
+        <div class="tab-icon" onclick="switchTab('tab-mat', this)"><i class="fa-solid fa-chess-board"></i><span>Material</span></div>
+        <div class="tab-icon" onclick="switchTab('tab-concept', this)"><i class="fa-solid fa-brain"></i><span>Concept</span></div>
+        <div class="tab-icon" onclick="switchTab('tab-swap', this)"><i class="fa-solid fa-shuffle"></i><span>Swap</span></div>
+        <div class="tab-icon" onclick="switchTab('tab-motion', this)"><i class="fa-solid fa-film"></i><span>Motion</span></div>
+        <div class="tab-icon" onclick="switchTab('tab-upscale', this)"><i class="fa-solid fa-maximize"></i><span>Upscale</span></div>
+    </nav>
+
+    <aside class="sidebar">
+        <div style="text-align: center; margin-bottom: 25px; border-bottom: 1px solid var(--border); padding-bottom: 15px;">
+            <img src="../assets/logo_apaya.png" alt="Apaya Logo" style="max-width: 100px; margin-bottom: 10px;" onerror="this.style.display='none'">
+            <h2 style="color: var(--primary); margin: 0; letter-spacing: 1px;">APAYA STUDIO</h2>
+        </div>
+
+        <div class="credit-container">
+            <input type="text" id="license-key-input" placeholder="Masukkan License Key..." style="width:100%; background:var(--bg-main); border:1px solid var(--border); color:white; padding:8px; border-radius:4px; font-size:11px; text-align:center; margin-bottom:8px; outline:none; text-transform: uppercase;">
+            <button id="btn-validate-license" class="btn-export" style="width:100%; padding:8px; font-size:10px; margin-bottom:12px;" onclick="verifyLicense()">VALIDASI LISENSI</button>
+            <span class="credit-title">Sisa Kredit Render</span>
+            <h2 class="credit-balance" id="ui-credit-balance"><i class="fa-solid fa-coins"></i> 0</h2>
+            <button class="btn-topup" onclick="openTopupModal()"><i class="fa-solid fa-bolt"></i> TOP UP KREDIT</button>
+            <button id="btn-claim-free" class="btn-action-top" style="display: none; width: 100%; margin-top: 8px; font-weight: bold; font-size: 11px; padding: 10px; background: #22c55e; color: white; border: none; border-radius: 6px; cursor: pointer; box-shadow: 0 0 10px rgba(34, 197, 94, 0.4);" onclick="claimFreeCredit()"><i class="fa-solid fa-gift"></i> CLAIM FREE CREDIT</button>
+            
+            </div>
+
+        <div id="sidebar-manager">
+            <div class="sidebar-section">
+                                <span class="sidebar-title">Custom Ratio Creator</span>
+                <div class="ratio-box" style="display:flex; flex-direction:column; gap:12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:12px; font-weight:bold; color:var(--text-main);">Landscape :</span>
+                        <input type="number" id="inp-ls" class="ratio-input" value="1.43" step="0.1" style="width: 70px; text-align:center;">
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:12px; font-weight:bold; color:var(--text-main);">Portrait :</span>
+                        <input type="number" id="inp-pt" class="ratio-input" value="0.8" step="0.1" style="width: 70px; text-align:center;">
+                    </div>
+                    <button class="btn-export" style="margin-top:5px; width:100%; justify-content:center; padding: 10px; font-size:12px; border-radius:6px; background:var(--primary); color:#1e1e24; font-weight:900; border:none; cursor:pointer;" onclick="syncRatios(); showToast('Success', 'Ratio berhasil diterapkan!');"><i class="fa-solid fa-check"></i> APPLY RATIO</button>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <span class="sidebar-title">Batch Selection</span>
+                <button class="btn-sidebar" onclick="selectAll(true)"><i class="fa-solid fa-check-double"></i> Select All</button>
+                <button class="btn-sidebar" onclick="selectAll(false)"><i class="fa-solid fa-xmark"></i> Deselect All</button>
+                <button class="btn-sidebar" onclick="deleteSelected()" style="color:var(--danger);"><i class="fa-solid fa-trash"></i> Delete Selected</button>
+            </div>
+        </div>
+
+        <div id="sidebar-concept">
+            <span class="sidebar-title">Source Camera</span>
+            <button class="btn-sidebar btn-load-scenes" onclick="loadConceptThumbs(this)">
+                <i class="fa-solid fa-rotate"></i> Load Active Scenes
+            </button>
+            <div class="thumb-list" id="concept-thumb-list">
+                <p style="color:var(--text-muted); font-size: 11px; text-align: center; margin-top: 20px;">Klik 'Load Active Scenes' untuk menarik list kamera.</p>
+            </div>
+        </div>
+
+        <div id="sidebar-material">
+            <span class="sidebar-title">Rendered History</span>
+            <div style="display:flex; gap:10px; margin-bottom:10px;">
+                <button class="btn-sidebar btn-load-scenes" onclick="loadMaterialThumbs(this)" style="flex:1; margin-bottom:0;">
+                    <i class="fa-solid fa-rotate"></i> Load History
+                </button>
+                <button class="btn-sidebar" onclick="if(typeof sketchup !== 'undefined') sketchup.open_cache_folder()" style="flex:1; margin-bottom:0; justify-content:center; background:var(--bg-main); color:var(--text-main); border:1px solid var(--border);">
+                    <i class="fa-solid fa-folder-open"></i> Buka Cache
+                </button>
+            </div>
+            <div class="thumb-list" id="material-thumb-list">
+                <p style="color:var(--text-muted); font-size: 11px; text-align: center; margin-top: 20px;">Gambar dari Concept / Render akan ditarik ke sini.</p>
+            </div>
+        </div>
+        <div id="sidebar-upscale" style="display: none; flex-direction: column; flex: 1; min-height: 0; animation: fadeIn 0.3s ease;">
+            <span class="sidebar-title">Rendered History</span>
+            <button class="btn-sidebar btn-load-scenes" onclick="loadUpscaleHistory(this)" style="margin-bottom:10px;"><i class="fa-solid fa-rotate"></i> Load Render History</button>
+            <div class="thumb-list" id="upscale-thumb-list" style="margin-bottom: 20px;"><p style="color:var(--text-muted); font-size: 11px; text-align: center; margin-top: 10px;">Klik Load untuk menarik hasil render.</p></div>
+        </div>
+            <div id="sidebar-motion" style="display: none; flex-direction: column; flex: 1; min-height: 0; animation: fadeIn 0.3s ease;">
+            <span class="sidebar-title">Rendered History</span>
+            <button class="btn-sidebar btn-load-scenes" onclick="loadMotionHistory(this)" style="margin-bottom:10px;"><i class="fa-solid fa-rotate"></i> Load Render History</button>
+            <div class="thumb-list" id="motion-thumb-list" style="margin-bottom: 20px;"><p style="color:var(--text-muted); font-size: 11px; text-align: center; margin-top: 10px;">Klik Load untuk menarik hasil render.</p></div>
+        </div>
+    </aside>
+
+    <main class="main-container">
+        <div id="tab-camera" class="tab-content active">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="margin:0;">CAMERA MANAGER</h3>
+                <div style="display:flex; gap: 10px;">
+                    <button class="icon-btn" onclick="sketchup.open_export_folder()" style="color:var(--primary); border-color:var(--primary); width:35px; height:35px;" title="Buka Folder Output"><i class="fa-solid fa-folder-open"></i></button>
+                    <div style="position:relative; display:flex; align-items:center;">
+                        <input type="text" id="search-input" placeholder="Search Camera..." oninput="filterTable(); toggleClearBtn()" style="background:var(--bg-main); border:1px solid var(--border); color:white; padding:8px 35px 8px 15px; border-radius:4px; outline:none; width: 220px; font-size:12px;">
+                        <i class="fa-solid fa-xmark clear-icon" id="clear-search" onclick="clearSearch()" title="Clear Search" style="display:none;"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr><th style="width:30px;"><input type="checkbox" id="master-cb" checked onclick="toggleMaster(this)"></th><th>NAME</th><th>TYPE</th><th>RATIO</th><th>RESOLUTION</th><th>ACTION</th></tr>
+                    </thead>
+                    <tbody id="camera-list"></tbody>
+                </table>
+            </div>
+
+            <div class="bottom-grid">
+                <div class="panel">
+                    <span class="sidebar-title">Style Preset</span>
+                    <div class="mode-grid">
+                        <div class="mode-box active" onclick="toggleMode(this)"><input type="checkbox" class="style-cb" value="EDGE_PROFILE" checked onchange="updateSummary()"><i class="fa-solid fa-cube"></i><span style="font-size: 8.5px;">EDGE_PROFILE</span></div>
+                        <div class="mode-box" onclick="toggleMode(this)"><input type="checkbox" class="style-cb" value="EDGE" onchange="updateSummary()"><i class="fa-solid fa-pencil"></i><span>EDGE</span></div>
+                        <div class="mode-box" onclick="toggleMode(this)"><input type="checkbox" class="style-cb" value="PROFILE" onchange="updateSummary()"><i class="fa-solid fa-border-all"></i><span>PROFILE</span></div>
+                        <div class="mode-box" onclick="toggleMode(this)"><input type="checkbox" class="style-cb" value="CLEAN" onchange="updateSummary()"><i class="fa-solid fa-eraser"></i><span>CLEAN</span></div>
+                    </div>
+                </div>
+                <div class="panel">
+                    <span class="sidebar-title">Resolution Target</span>
+                    <div class="res-grid">
+                        <div class="res-card" id="res-2K" onclick="setRes('2K')"><span class="label">2K</span><span class="pixels" id="px-2K">---</span></div>
+                        <div class="res-card active" id="res-4K" onclick="setRes('4K')"><span class="label">4K</span><span class="pixels" id="px-4K">---</span></div>
+                        <div class="res-card" id="res-5K" onclick="setRes('5K')"><span class="label">5K</span><span class="pixels" id="px-5K">---</span></div>
+                        <div class="res-card" id="res-8K" onclick="setRes('8K')"><span class="label">8K</span><span class="pixels" id="px-8K">---</span></div>
+                    </div>
+                </div>
+                <div class="panel">
+                    <span class="sidebar-title">Export Summary</span>
+                    <div style="font-size:12px; flex:1; padding-top:10px;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:12px; color:var(--text-muted);"><span>Selected Views:</span><span id="sum-cam" style="color:white; font-weight:bold;">0</span></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:12px; color:var(--text-muted);"><span>Total Presets:</span><span id="sum-mode" style="color:white; font-weight:bold;">1</span></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:12px; color:var(--text-muted);"><span>Est. Total Size:</span><span id="sum-size" style="color:var(--primary); font-weight:bold;">~ 0 MB</span></div>
+                        <div style="display:flex; justify-content:space-between; margin-top:20px; font-weight:bold; color:var(--primary); font-size:14px; border-top:1px solid var(--border); padding-top:15px;"><span>Total Files:</span><span id="sum-total">0</span></div>
+                    </div>
+                    <label style="font-size:11px; display:flex; align-items:center; cursor:pointer; margin-bottom:10px; color:var(--text-muted);"><input type="checkbox" id="export-aa" style="accent-color:var(--primary); margin-right:6px;"> Gunakan Anti-Aliasing</label>
+                    <button class="btn-export" onclick="executeExport()"><i class="fa-solid fa-download"></i> EXPORT BATCH</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-render" class="tab-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="margin:0;"><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--primary); margin-right:8px;"></i> FINAL AI RENDER</h3>
+                                <div class="ai-action-bar" id="r-action-bar">
+                    <button class="btn-action-top" onclick="saveGallery('render')" title="Save Image"><i class="fa-solid fa-download"></i></button>
+                    <button class="btn-action-top btn-alchemist" onclick="sendTo('render', 'tab-mat')" title="Send to Alchemist"><i class="fa-solid fa-chess-board"></i></button>
+                    <button class="btn-action-top btn-alchemist" onclick="sendTo('render', 'tab-swap')" title="Send to Magic Swap"><i class="fa-solid fa-shuffle"></i></button>
+                    <button class="btn-action-top btn-alchemist" onclick="sendTo('render', 'tab-motion')" title="Send to Motion"><i class="fa-solid fa-film"></i></button>
+                </div>
+            </div>
+            
+            <div class="ai-grid">
+                <div class="ai-form">
+                    <div class="env-grid">
+                        <div class="env-box active" id="r-env-int" onclick="setEnv('interior', true)"><i class="fa-solid fa-couch"></i><span>INTERIOR</span></div>
+                        <div class="env-box" id="r-env-ext" onclick="setEnv('exterior', true)"><i class="fa-solid fa-tree"></i><span>EXTERIOR</span></div>
+                    </div>
+
+                    <span class="sidebar-title">Waktu / Pencahayaan</span>
+                    <div class="custom-select" id="r-dd-waktu" onclick="toggleDD(event, 'r-list-waktu')">
+                        <span id="r-txt-waktu">Siang (Daylight)</span><i class="fa-solid fa-chevron-down"></i>
+                        <div class="dropdown-list" id="r-list-waktu">
+                            <div class="dropdown-item" onclick="selectDD(event, 'r-dd-waktu', 'r-val-waktu', 'r-txt-waktu', 'pagi', 'Pagi (Morning Golden Hour)')">Pagi (Morning Golden Hour)</div>
+                            <div class="dropdown-item" onclick="selectDD(event, 'r-dd-waktu', 'r-val-waktu', 'r-txt-waktu', 'siang', 'Siang (Daylight)')">Siang (Daylight)</div>
+                            <div class="dropdown-item" onclick="selectDD(event, 'r-dd-waktu', 'r-val-waktu', 'r-txt-waktu', 'malam', 'Malam (Night Glow)')">Malam (Night Glow)</div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="r-val-waktu" value="siang">
+
+                    <span class="sidebar-title">Style Preset</span>
+                    <div class="custom-select" id="r-dd-style" onclick="toggleDD(event, 'r-list-style')">
+                        <span id="r-txt-style">Modern Luxury</span><i class="fa-solid fa-chevron-down"></i>
+                        <div class="dropdown-list" id="r-list-style">
+                            <div class="dropdown-item" onclick="selectDD(event, 'r-dd-style', 'r-val-style', 'r-txt-style', 'modern_luxury', 'Modern Luxury')">Modern Luxury</div>
+                            <div class="dropdown-item" onclick="selectDD(event, 'r-dd-style', 'r-val-style', 'r-txt-style', 'modern_classic', 'Modern Classic')">Modern Classic</div>
+                            <div class="dropdown-item" onclick="selectDD(event, 'r-dd-style', 'r-val-style', 'r-txt-style', 'classic', 'Classic')">Classic</div>
+                            <div class="dropdown-item" onclick="selectDD(event, 'r-dd-style', 'r-val-style', 'r-txt-style', 'japandi', 'Japandi')">Japandi</div>
+                            <div class="dropdown-item" onclick="selectDD(event, 'r-dd-style', 'r-val-style', 'r-txt-style', 'industrial', 'Industrial Raw')">Industrial Raw</div>
+                            <div class="dropdown-item" onclick="selectDD(event, 'r-dd-style', 'r-val-style', 'r-txt-style', 'tropical', 'Tropical Modern')">Tropical Modern</div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="r-val-style" value="modern_luxury">
+
+                    <div id="r-panel-exterior" style="display: none; flex-direction: column; background: var(--bg-main); padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px; gap: 15px;">
+                        <span class="sidebar-title" style="margin-bottom: 0;">Objek & Asset Tambahan</span>
+                        <label style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; padding: 5px 0;">
+                            <span style="font-size:12px; color:var(--text-main); font-weight:600;"><i class="fa-solid fa-lightbulb" style="color:var(--primary); margin-right:8px; width:15px; text-shadow: 0 0 5px rgba(250,204,21,0.5);"></i> Nyalakan Lampu Interior</span>
+                            <input type="checkbox" id="r-toggle-lampu" class="apaya-toggle">
+                        </label>
+                        <div style="height: 1px; background: var(--border); margin: 2px 0;"></div>
+                        <div>
+                            <span style="font-size:10px; color:var(--text-muted); display:block; margin-bottom:8px;"><i class="fa-solid fa-car" style="margin-right:5px;"></i> Kendaraan</span>
+                            <div class="custom-select" id="r-dd-kendaraan" style="margin-bottom:0; padding: 10px 15px;" onclick="toggleDD(event, 'r-list-kendaraan')">
+                                <span id="r-txt-kendaraan" style="font-size: 11px;">-- Tanpa Kendaraan --</span><i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>
+                                <div class="dropdown-list" id="r-list-kendaraan">
+                                    <div class="dropdown-item" onclick="selectDD(event, 'r-dd-kendaraan', 'r-val-kendaraan', 'r-txt-kendaraan', '', '-- Tanpa Kendaraan --')">-- Tanpa Kendaraan --</div>
+                                    <div class="dropdown-item" onclick="selectDD(event, 'r-dd-kendaraan', 'r-val-kendaraan', 'r-txt-kendaraan', 'with a luxury SUV passing by in the foreground', 'Luxury SUV Melintas')">Luxury SUV Melintas</div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="r-val-kendaraan" value="">
+                        </div>
+                    </div>
+
+                    <div class="prompt-header">
+                        <span class="sidebar-title" style="margin:0;">Custom Prompt</span>
+                        <div class="prompt-switch-small">
+                            <div class="switch-btn-small active" id="r-btn-auto" onclick="setPromptMode('auto', true)">AUTO</div>
+                            <div class="switch-btn-small" id="r-btn-manual" onclick="setPromptMode('manual', true)">MANUAL</div>
+                        </div>
+                    </div>
+                    <textarea id="r-ai-prompt" class="ai-input" style="height: 80px; opacity: 0.5;" disabled placeholder="Ketik tambahan manual prompt jika mau..."></textarea>
+
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px; margin-top: auto;">
+                        <span style="font-size:12px; color:var(--text-main); font-weight:600;"><i class="fa-solid fa-expand" style="color:var(--primary); margin-right:8px;"></i> Resolusi Target</span>
+                    </div>
+                    <div style="display:flex; gap: 10px; margin-bottom: 15px;">
+                        <div class="res-card active" id="r-res-2k" onclick="setRenderRes('2k')" style="flex: 1; min-height: 60px;"><span class="label" style="font-size: 16px;">2K</span><span class="pixels" style="margin-top: 2px;">1 Kredit</span></div>
+                        <div class="res-card" id="r-res-4k" onclick="setRenderRes('4k')" style="flex: 1; min-height: 60px;"><span class="label" style="font-size: 16px;">4K</span><span class="pixels" style="margin-top: 2px;">2 Kredit</span></div>
+                    </div>
+                    <button class="btn-export" id="btn-render-single" data-res="2k" style="width:100%; margin-top:0;" onclick="triggerAIGenerate(true, this.dataset.res || '2k')"><i class="fa-solid fa-wand-magic-sparkles"></i> <span id="r-btn-text">START RENDER (1 Cr)</span></button>
+                </div>
+                
+                <div class="ai-preview-box" id="r-preview-container">
+                    <div id="r-placeholder" style="display:flex; flex-direction:column; align-items:center;">
+                        <i class="fa-solid fa-layer-group" style="font-size: 60px; color: var(--border); margin-bottom: 15px;"></i>
+                        <p style="color: var(--text-muted); font-size: 13px;">Pilih kamera dari sidebar dan tekan Start Render.</p>
+                    </div>
+                    <div class="ba-container" id="r-ba-container">
+                        <img id="r-img-before" class="ba-img" src="" alt="Before">
+                        <img id="r-img-after" class="ba-img" src="" alt="After" style="clip-path: inset(0 0 0 50%); display:none;">
+                        <input type="range" min="0" max="100" value="50" class="ba-slider" id="r-ba-slider" style="display:none;" oninput="updateRenderBASlider(this.value)">
+                        <div class="ba-handle" id="r-ba-handle" style="left: 50%; display:none;"></div>
+                    </div>
+                    <div class="loading-overlay" id="r-loading-overlay">
+                        <img src="../assets/logo_apaya.png" class="spin-logo">
+                        <span id="r-loading-text">GENERATING YOUR FINAL IDEA...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="tab-mat" class="tab-content">
+            <h3 style="margin-top:0; color: var(--primary);"><i class="fa-solid fa-chess-board" style="margin-right: 8px;"></i> MATERIAL ALCHEMIST</h3>
+            
+            <div class="ai-grid">
+                <div class="ai-form" style="padding: 20px;">
+                    <div class="mat-toolbar">
+                        <span class="sidebar-title" style="margin:0;">Marker Tool</span>
+                        <label style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:12px; color:var(--text-main);">Ukuran Kuas</span>
+                            <span id="brush-val" style="font-size:12px; color:var(--primary); font-weight:bold;">30px</span>
+                        </label>
+                        <input type="range" id="brush-size" class="range-slider" min="10" max="100" value="30" oninput="document.getElementById('brush-val').innerText = this.value + 'px'; matCtx.lineWidth = this.value;">
+                        <button class="btn-sidebar" onclick="clearMask()" style="justify-content: center; margin-top:10px;"><i class="fa-solid fa-eraser"></i> Hapus Coretan</button>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <span class="sidebar-title">Nama / Jenis Material</span>
+                        <input type="text" id="mat-prompt" class="ai-input" placeholder="Contoh: Beton ekspos, Kayu jati tua, Batu bata..." style="margin-bottom: 0;">
+                        <span style="font-size: 9px; color: var(--text-muted); display: block; margin-top: 5px;">Kasih tau AI ini material apa biar gak halusinasi. Boleh dikosongin.</span>
+                    </div>
+
+                    <div style="background: rgba(250, 204, 21, 0.05); border: 1px solid var(--primary); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <span style="font-size: 11px; color: var(--text-main); display: block; margin-bottom: 10px;"><i class="fa-solid fa-circle-info" style="color:var(--primary);"></i> <b>Cara Penggunaan:</b></span>
+                        <span style="font-size: 10px; color: var(--text-muted); line-height: 1.5;">Gunakan kursor Anda untuk menandai area material pada gambar di sebelah kanan. Anda juga bisa drag & drop foto lokal.</span>
+                    </div>
+                    <button class="btn-export" id="btn-extract" style="margin-top:auto; font-size:12px; background:var(--orange);" onclick="extractMaterial()"><i class="fa-solid fa-wand-magic-sparkles"></i> EXTRACT SEAMLESS (1 Cr)</button>
+                </div>
+
+                <div class="ai-preview-box" id="mat-drop-zone" style="flex:1; padding: 15px; background:#000; transition:0.3s; border: 1px dashed var(--border);">
+                    <p id="mat-placeholder" style="color:var(--text-muted); position: absolute; z-index:1; text-align:center; font-size: 13px; line-height: 1.6; cursor: pointer; padding: 20px;">Kirim gambar dari Concept / Render,<br><b>Drag & Drop gambar ke sini</b>, <br>Atau klik area ini untuk Upload foto.</p>
+                    <input type="file" id="mat-file-input" style="display:none;" accept="image/*" onchange="loadMatLocalImage(event)">
+
+                    <div class="mat-canvas-container" id="mat-canvas-container" style="display:none;">
+                        <img id="mat-preview-img" src="">
+                        <canvas id="mat-canvas" onmousedown="startDraw(event)" onmousemove="draw(event)" onmouseup="stopDraw()" onmouseleave="stopDraw()"></canvas>
+                    </div>
+
+                    <div class="loading-overlay" id="mat-loading-overlay">
+                        <img src="../assets/logo_apaya.png" class="spin-logo">
+                        <span>EXTRACTING SEAMLESS MATERIAL...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-concept" class="tab-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="margin:0;"><i class="fa-solid fa-brain" style="color:var(--primary); margin-right:8px;"></i> AI CONCEPT ASSISTANT</h3>
+                
+                                <div class="ai-action-bar" id="concept-action-bar">
+                    <button class="btn-action-top" onclick="saveGallery('concept')" title="Save Image"><i class="fa-solid fa-download"></i></button>
+                    <button class="btn-action-top btn-alchemist" onclick="sendTo('concept', 'tab-mat')" title="Send to Alchemist"><i class="fa-solid fa-chess-board"></i></button>
+                    <button class="btn-action-top btn-alchemist" onclick="sendTo('concept', 'tab-swap')" title="Send to Magic Swap"><i class="fa-solid fa-shuffle"></i></button>
+                    <button class="btn-action-top btn-alchemist" onclick="sendTo('concept', 'tab-motion')" title="Send to Motion"><i class="fa-solid fa-film"></i></button>
+                </div>
+            </div>
+
+            <div class="ai-grid">
+                <div class="ai-form">
+                    <div class="env-grid">
+                        <div class="env-box active" id="env-int" onclick="setEnv('interior')"><i class="fa-solid fa-couch"></i><span>INTERIOR</span></div>
+                        <div class="env-box" id="env-ext" onclick="setEnv('exterior')"><i class="fa-solid fa-tree"></i><span>EXTERIOR</span></div>
+                    </div>
+
+                    <span class="sidebar-title">Waktu / Pencahayaan</span>
+                    <div class="custom-select" id="dd-waktu" onclick="toggleDD(event, 'list-waktu')">
+                        <span id="txt-waktu">Siang (Daylight)</span><i class="fa-solid fa-chevron-down"></i>
+                        <div class="dropdown-list" id="list-waktu">
+                            <div class="dropdown-item" onclick="selectDD(event, 'dd-waktu', 'val-waktu', 'txt-waktu', 'pagi', 'Pagi (Morning Golden Hour)')">Pagi (Morning Golden Hour)</div>
+                            <div class="dropdown-item" onclick="selectDD(event, 'dd-waktu', 'val-waktu', 'txt-waktu', 'siang', 'Siang (Daylight)')">Siang (Daylight)</div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="val-waktu" value="siang">
+
+                    <span class="sidebar-title">Style Preset</span>
+                    <div class="custom-select" id="dd-style" onclick="toggleDD(event, 'list-style')">
+                        <span id="txt-style">Modern Luxury</span><i class="fa-solid fa-chevron-down"></i>
+                        <div class="dropdown-list" id="list-style">
+                            <div class="dropdown-item" onclick="selectDD(event, 'dd-style', 'val-style', 'txt-style', 'modern_luxury', 'Modern Luxury')">Modern Luxury</div>
+                            <div class="dropdown-item" onclick="selectDD(event, 'dd-style', 'val-style', 'txt-style', 'modern_classic', 'Modern Classic')">Modern Classic</div>
+                            <div class="dropdown-item" onclick="selectDD(event, 'dd-style', 'val-style', 'txt-style', 'classic', 'Classic')">Classic</div>
+                            <div class="dropdown-item" onclick="selectDD(event, 'dd-style', 'val-style', 'txt-style', 'japandi', 'Japandi')">Japandi</div>
+                            <div class="dropdown-item" onclick="selectDD(event, 'dd-style', 'val-style', 'txt-style', 'industrial', 'Industrial Raw')">Industrial Raw</div>
+                            <div class="dropdown-item" onclick="selectDD(event, 'dd-style', 'val-style', 'txt-style', 'tropical', 'Tropical Modern')">Tropical Modern</div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="val-style" value="modern_luxury">
+
+                    <span class="sidebar-title" style="margin:0; display:block; margin-bottom:8px;">Conceptor Prompt & Material Board</span>
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                        <textarea id="ai-prompt" class="ai-input" style="flex: 1; min-height: 100px; margin-bottom: 0;" placeholder="Tuliskan imajinasi liar untuk ruangan ini..."></textarea>
+                        <div id="ref-upload-box" style="width: 100px; height: 100px; border: 1px dashed var(--primary); border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; background: rgba(250, 204, 21, 0.05); color: var(--primary); transition: 0.2s; position: relative; overflow: hidden; flex-shrink: 0;" onclick="document.getElementById('ref-file-input').click()">
+                            <i class="fa-solid fa-cloud-arrow-up" style="font-size: 24px; margin-bottom: 8px; pointer-events: none;"></i>
+                            <span style="font-size: 9px; text-align: center; font-weight: bold; line-height: 1.2; pointer-events: none;">DRAG/UPLOAD<br>MAT. BOARD</span>
+                            <img id="ref-preview" src="" style="position: absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; display:none; pointer-events: none;">
+                            <div id="ref-remove" style="display: none; position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.7); color: white; border-radius: 50%; width: 20px; height: 20px; align-items: center; justify-content: center; font-size: 10px; z-index: 10; cursor: pointer;" onclick="event.stopPropagation(); removeRefImage();"><i class="fa-solid fa-xmark"></i></div>
+                        </div>
+                        <input type="file" id="ref-file-input" style="display:none;" accept="image/*" onchange="loadRefImage(event)">
+                    </div>
+
+                    <button class="btn-export" id="btn-concept" style="margin-top:auto;" onclick="triggerAIGenerate(false)"><i class="fa-solid fa-wand-magic-sparkles"></i> GENERATE CONCEPT (1 Cr)</button>
+                </div>
+
+                <div class="ai-preview-box" id="ai-preview-container">
+                    <div id="ai-placeholder" style="display:flex; flex-direction:column; align-items:center;">
+                        <i class="fa-regular fa-image" style="font-size: 60px; color: var(--border); margin-bottom: 15px;"></i>
+                        <p style="color: var(--text-muted); font-size: 13px;">Pilih kamera dari sidebar kiri.</p>
+                    </div>
+                    
+                    <div class="ba-container" id="ba-container">
+                        <img id="img-before" class="ba-img" src="" alt="Before">
+                        <img id="img-after" class="ba-img" src="" alt="After" style="clip-path: inset(0 0 0 50%); display:none;">
+                        <input type="range" min="0" max="100" value="50" class="ba-slider" id="ba-slider" style="display:none;" oninput="updateBASlider(this.value)">
+                        <div class="ba-handle" id="ba-handle" style="left: 50%; display:none;"></div>
+                    </div>
+
+                    <div class="loading-overlay" id="ai-loading-overlay">
+                        <img src="../assets/logo_apaya.png" class="spin-logo">
+                        <span id="loading-text">GENERATING YOUR CONCEPT IDEA...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- ============================================== -->
+        <!-- TAB 5: MAGIC SWAP (INPAINTING) -->
+        <!-- ============================================== -->
+        <div id="tab-swap" class="tab-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="margin:0;"><i class="fa-solid fa-shuffle" style="color:var(--primary); margin-right:8px;"></i> APAYA MAGIC SWAP</h3>
+                <div class="ai-action-bar" id="swap-action-bar">
+                    <button class="btn-action-top" onclick="saveSwapResult()" title="Save Image"><i class="fa-solid fa-download"></i></button>
+                </div>
+            </div>
+            
+            <div class="split-layout" style="display: flex; gap: 20px; height: 100%;">
+                <!-- LEFT SIDE: Settings -->
+                <div style="width: 320px; display: flex; flex-direction: column; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); flex-shrink: 0;">
+                    
+                    <span class="sidebar-title">Mode Magic Swap</span>
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                        <div class="env-box active" id="swap-env-obj" onclick="setSwapMode('object')" style="flex: 1; padding: 10px;">
+                            <i class="fa-solid fa-couch" style="margin-bottom: 5px;"></i> Object
+                        </div>
+                        <div class="env-box" id="swap-env-mat" onclick="setSwapMode('material')" style="flex: 1; padding: 10px;">
+                            <i class="fa-solid fa-chess-board" style="margin-bottom: 5px;"></i> Material
+                        </div>
+                    </div>
+
+                    <span class="sidebar-title">Image B (Pengganti)</span>
+                    <div id="swap-ref-drop-zone" style="border: 2px dashed var(--border); border-radius: 8px; height: 280px; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; background: rgba(255,255,255,0.02); transition: 0.2s; position: relative; overflow: hidden; margin-bottom: 20px;" onclick="document.getElementById('swap-ref-input').click()" ondragover="event.preventDefault(); this.style.borderColor='var(--primary)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="handleDrop(event, 'swap-ref')">
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size: 20px; color: var(--text-muted); margin-bottom: 5px; pointer-events: none;"></i>
+                        <span id="swap-ref-text" style="color: var(--text-muted); font-size: 12px; font-weight: bold; pointer-events: none; text-align: center;">DRAG & DROP<br>Atau Klik Untuk Upload</span>
+                        <img id="swap-ref-preview" style="position: absolute; width: 100%; height: 100%; object-fit: cover; display: none; pointer-events: none;">
+                    </div>
+                    <input type="file" id="swap-ref-input" style="display:none;" accept="image/*" onchange="handleFileSelect(event, 'swap-ref')">
+
+                    <span class="sidebar-title">Brush Size (Masking)</span>
+                    <input type="range" id="swap-brush-size" min="10" max="150" value="40" style="display:block; width:100%; margin-bottom: 20px; accent-color: var(--primary); cursor: pointer;" oninput="if(swapCtx) swapCtx.lineWidth = this.value;">
+
+                    <button class="btn-sidebar" onclick="clearSwapCanvas()"><i class="fa-solid fa-eraser"></i> Clear Masking</button>
+
+                    <button class="btn-export" id="btn-generate-swap" style="margin-top:auto;" onclick="triggerSwapGenerate()"><i class="fa-solid fa-shuffle"></i> START MAGIC SWAP (1 Cr)</button>
+                </div>
+
+                <!-- RIGHT SIDE: Canvas -->
+                <div class="ai-preview-box" id="swap-preview-container">
+                    <input type="file" id="swap-main-input" style="display:none;" accept="image/*" onchange="handleFileSelect(event, 'swap-main')">
+                    <div id="swap-placeholder" style="display:flex; flex-direction:column; align-items:center; cursor:pointer; width:100%; height:100%; justify-content:center;" onclick="document.getElementById('swap-main-input').click()" ondragover="event.preventDefault(); this.parentElement.style.borderColor='var(--primary)'" ondragleave="this.parentElement.style.borderColor='var(--border)'" ondrop="handleDrop(event, 'swap-main')">
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size: 60px; color: var(--border); margin-bottom: 15px; pointer-events: none;"></i>
+                        <p style="color: var(--text-muted); font-size: 13px; text-align: center; pointer-events: none;">Kirim gambar ke sini via tombol Send to Magic Swap,<br><b>atau Drag & Drop Gambar Base ke sini</b></p>
+                    </div>
+                    
+                    <div id="swap-canvas-container" style="position: relative; display: none; align-items: center; justify-content: center; width: 100%; height: 100%;">
+                        <!-- Bawah: Base Image -->
+                        <img id="swap-img-before" style="max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0 0 20px rgba(0,0,0,0.8); pointer-events: none;">
+                        <!-- Atas: Canvas buat nyoret -->
+                        <canvas id="swap-canvas" style="position: absolute; cursor: crosshair; z-index: 10; opacity: 0.6;" onmousedown="startDrawSwap(event)" onmousemove="drawSwap(event)" onmouseup="stopDrawSwap()" onmouseout="stopDrawSwap()"></canvas>
+                        <!-- Paling Atas: Image Result overlay -->
+                        <img id="swap-img-after" style="position: absolute; max-width: 100%; max-height: 100%; object-fit: contain; display: none; z-index: 20; box-shadow: 0 0 20px rgba(0,0,0,0.8);">
+                        <div class="loading-overlay" id="swap-loading-overlay" style="z-index: 30;">
+                            <img src="../assets/logo_apaya.png" class="spin-logo">
+                            <span id="swap-loading-text">SWAPPING MAGIC...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- TAB 6: MOTION (IMAGE TO VIDEO) -->
+        <!-- ============================================== -->
+        <div id="tab-motion" class="tab-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="margin:0;"><i class="fa-solid fa-film" style="color:var(--primary); margin-right:8px;"></i> APAYA MOTION</h3>
+                <div class="ai-action-bar" id="motion-action-bar">
+                    <button class="btn-action-top" onclick="saveMotionResult()" title="Save Video"><i class="fa-solid fa-download"></i></button>
+                </div>
+            </div>
+            
+            <div class="split-layout" style="display: flex; gap: 20px; height: 100%;">
+                <!-- LEFT SIDE: Settings -->
+                <div style="width: 320px; display: flex; flex-direction: column; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); flex-shrink: 0;">
+                    
+                    <span class="sidebar-title">Image Input</span>
+                    <div id="motion-drop-zone" style="border: 2px dashed var(--border); border-radius: 8px; height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; background: rgba(255,255,255,0.02); transition: 0.2s; position: relative; overflow: hidden; margin-bottom: 20px;" onclick="document.getElementById('motion-file-input').click()" ondragover="event.preventDefault(); this.style.borderColor='var(--primary)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="handleDrop(event, 'motion')">
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size: 20px; color: var(--text-muted); margin-bottom: 5px; pointer-events: none;"></i>
+                        <span id="motion-drop-text" style="color: var(--text-muted); font-size: 12px; font-weight: bold; pointer-events: none; text-align: center;">DRAG GAMBAR KE SINI<br>Atau Klik Untuk Upload</span>
+                        <img id="motion-preview-img" style="position: absolute; width: 100%; height: 100%; object-fit: cover; display: none; pointer-events: none;">
+                    </div>
+                    <input type="file" id="motion-file-input" style="display:none;" accept="image/*" onchange="handleFileSelect(event, 'motion')">
+
+                    <span class="sidebar-title">Camera Movement (Prompt)</span>
+                    <textarea id="motion-prompt" class="ai-input" style="flex: 1; min-height: 100px; margin-bottom: 15px;" placeholder="Contoh: Cinematic slow pan to the right, soft lighting, 4k resolution"></textarea>
+                    
+                    <div style="background: rgba(250, 204, 21, 0.05); padding: 10px; border-radius: 6px; border: 1px dashed var(--primary); margin-bottom: 20px;">
+                        <span style="font-size: 10px; color: var(--text-muted);"><i class="fa-solid fa-lightbulb" style="color:var(--primary);"></i> <b>TIPS KAMERA:</b><br>Gunakan keyword seperti: "zoom in", "pan left", "tilt up", atau "orbit around" untuk pergerakan kamera.</span>
+                    </div>
+
+                    <button class="btn-export" id="btn-generate-motion" style="margin-top:auto;" onclick="triggerMotionGenerate()"><i class="fa-solid fa-video"></i> <span id="btn-motion-text">GENERATE HD 5s (3 Cr)</span></button>
+                </div>
+
+                <!-- RIGHT SIDE: Video Result -->
+                <div class="ai-preview-box" id="motion-result-container">
+                    <div id="motion-placeholder" style="display:flex; flex-direction:column; align-items:center; cursor:pointer; width:100%; height:100%; justify-content:center;" onclick="document.getElementById('motion-file-input').click()" ondragover="event.preventDefault(); this.parentElement.style.borderColor='var(--primary)'" ondragleave="this.parentElement.style.borderColor='var(--border)'" ondrop="handleDrop(event, 'motion')">
+                        <i class="fa-solid fa-film" style="font-size: 60px; color: var(--border); margin-bottom: 15px; pointer-events: none;"></i>
+                        <p style="color: var(--text-muted); font-size: 13px; text-align: center; pointer-events: none;">Video motion (5 detik) akan muncul di sini.<br><br><b>Drag & Drop gambar ke sini untuk mulai</b></p>
+                    </div>
+                    
+                    <video id="motion-video" controls loop autoplay muted style="width: 100%; height: 100%; object-fit: contain; display: none; border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.8); background: #000;"></video>
+
+                    <div class="loading-overlay" id="motion-loading-overlay">
+                        <img src="../assets/logo_apaya.png" class="spin-logo">
+                        <span id="motion-loading-text">RENDERING VIDEO...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- ============================================== -->
+        <!-- TAB 7: UPSCALE 4K -->
+        <!-- ============================================== -->
+        <div id="tab-upscale" class="tab-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="margin:0;"><i class="fa-solid fa-maximize" style="color:var(--primary); margin-right:8px;"></i> APAYA UPSCALE 4K</h3>
+                <div class="ai-action-bar"><button class="btn-action-top" onclick="saveUpscaleResult()" title="Save Image"><i class="fa-solid fa-download"></i></button></div>
+            </div>
+            <div style="display: flex; gap: 20px; height: 100%;">
+                <div style="width: 320px; display: flex; flex-direction: column; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); flex-shrink: 0;">
+                    <span class="sidebar-title">Upload Gambar Eksternal</span>
+                    <div id="upscale-drop-zone" style="border: 2px dashed var(--border); border-radius: 8px; height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; background: rgba(255,255,255,0.02); transition: 0.2s; position: relative; overflow: hidden; margin-bottom: 20px;" onclick="document.getElementById('upscale-file-input').click()" ondragover="event.preventDefault(); this.style.borderColor='var(--primary)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="handleUpscaleDrop(event)">
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size: 20px; color: var(--text-muted); margin-bottom: 5px; pointer-events: none;"></i>
+                        <span id="upscale-drop-text" style="color: var(--text-muted); font-size: 12px; font-weight: bold; pointer-events: none; text-align: center;">DRAG GAMBAR KE SINI<br>Atau Klik Untuk Upload</span>
+                        <img id="upscale-preview-thumb" style="position: absolute; width: 100%; height: 100%; object-fit: cover; display: none; pointer-events: none;">
+                    </div>
+                    <input type="file" id="upscale-file-input" style="display:none;" accept="image/*" onchange="handleUpscaleFileSelect(event)">
+                    <div style="background: rgba(250, 204, 21, 0.05); padding: 10px; border-radius: 6px; border: 1px dashed var(--primary); margin-bottom: 20px;"><span style="font-size: 10px; color: var(--text-muted);"><i class="fa-solid fa-circle-info" style="color:var(--primary);"></i> <b>INFO:</b><br>Upscale akan memperbesar gambar ke resolusi 4K dengan kualitas ultra-detail.</span></div>
+                    <button class="btn-export" id="btn-generate-upscale" style="margin-top:auto;" onclick="triggerUpscaleGenerate()"><i class="fa-solid fa-maximize"></i> START UPSCALE 4K (2 Cr)</button>
+                </div>
+                <div class="ai-preview-box" id="upscale-preview-container">
+                    <div id="upscale-placeholder" style="display:flex; flex-direction:column; align-items:center;">
+                        <i class="fa-solid fa-maximize" style="font-size: 60px; color: var(--border); margin-bottom: 15px;"></i>
+                        <p style="color: var(--text-muted); font-size: 13px; text-align: center;">Upload gambar atau pilih dari Render History,<br>lalu tekan Start Upscale 4K.</p>
+                    </div>
+                    <div class="ba-container" id="up-ba-container">
+                        <img id="up-img-before" class="ba-img" src="" alt="Before">
+                        <img id="up-img-after" class="ba-img" src="" alt="After" style="clip-path: inset(0 0 0 50%); display:none;">
+                        <input type="range" min="0" max="100" value="50" class="ba-slider" id="up-ba-slider" style="display:none;" oninput="updateUpscaleBASlider(this.value)">
+                        <div class="ba-handle" id="up-ba-handle" style="left: 50%; display:none;"></div>
+                    </div>
+                    <div class="loading-overlay" id="upscale-loading-overlay">
+                        <img src="../assets/logo_apaya.png" class="spin-logo">
+                        <span id="upscale-loading-text">UPSCALING TO 4K...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+        <div id="topup-overlay" class="modal-overlay">
+        <div class="modal-box modal-box-large" style="height: auto; max-height: 85vh; overflow-y: auto; text-align: left;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+                <h3 style="margin:0; color:var(--primary); font-size:20px;"><i class="fa-solid fa-bolt"></i> Top Up & Pricelist</h3>
+                <button class="icon-btn" onclick="closeTopupModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <p style="font-size:13px; color:var(--text-muted); margin-bottom: 20px;">Pilih paket kredit di bawah ini, Anda akan otomatis diarahkan ke WhatsApp Admin untuk konfirmasi pembayaran.</p>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 30px;">
+                <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; transition: 0.2s;" class="pkg-card" onclick="sendTopupWA('Paket Starter (10 Kredit)')">
+                    <h4 style="margin:0 0 5px 0; color:#cbd5e1;">🥉 STARTER</h4>
+                    <h2 style="margin:0 0 5px 0; color:var(--primary); font-size: 24px;">10<span style="font-size:12px;">Cr</span></h2>
+                    <p style="margin:0; color:var(--text-muted); font-size: 12px; font-weight:bold;">Rp 50.000</p>
+                </div>
+                <div style="background: var(--primary); border: 1px solid var(--primary); border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; position:relative; transition: 0.2s; box-shadow: 0 0 20px rgba(251, 146, 60, 0.4);" class="pkg-card pkg-pro" onclick="sendTopupWA('Paket Pro (50 Kredit)')">
+                    <div style="position:absolute; top:-10px; left:50%; transform:translateX(-50%); background:white; color:black; font-size:10px; font-weight:900; padding:2px 8px; border-radius:10px; border: 1px solid #e2e8f0;">TERLARIS</div>
+                    <h4 style="margin:0 0 5px 0; color:white;">🥈 PRO</h4>
+                    <h2 style="margin:0 0 5px 0; color:white; font-size: 24px;">50<span style="font-size:12px;">Cr</span></h2>
+                    <p style="margin:0; color:white; font-size: 12px; font-weight:bold;">Rp 200.000</p>
+                </div>
+                <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; transition: 0.2s;" class="pkg-card" onclick="sendTopupWA('Paket Studio (100 Kredit)')">
+                    <h4 style="margin:0 0 5px 0; color:#cbd5e1;">🥇 STUDIO</h4>
+                    <h2 style="margin:0 0 5px 0; color:var(--primary); font-size: 24px;">100<span style="font-size:12px;">Cr</span></h2>
+                    <p style="margin:0; color:var(--text-muted); font-size: 12px; font-weight:bold;">Rp 400.000</p>
+                </div>
+            </div>
+            
+            <h4 style="margin:0 0 10px 0; color:white; font-size:14px;"><i class="fa-solid fa-list"></i> Biaya Konsumsi Kredit</h4>
+            <div class="table-container" style="margin-bottom: 0;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>FITUR / LAYANAN</th>
+                            <th>RESOLUSI</th>
+                            <th>BIAYA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="font-weight: bold;"><i class="fa-solid fa-brain" style="color:var(--primary);"></i> AI Concept & Alchemist</td>
+                            <td>Max 2K</td>
+                            <td style="color: var(--orange); font-weight: bold;">1 Kredit</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: bold;"><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--primary);"></i> Final Render 2K</td>
+                            <td>High-Res Fotorealistik</td>
+                            <td style="color: var(--orange); font-weight: bold;">1 Kredit</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: bold;"><i class="fa-solid fa-crown" style="color:#f59e0b;"></i> Final Render 4K</td>
+                            <td>Ultra HD (4K)</td>
+                            <td style="color: var(--danger); font-weight: bold;">2 Kredit</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: bold;"><i class="fa-solid fa-maximize" style="color:var(--primary);"></i> Upscale 4K</td>
+                            <td>Ultra HD (4K)</td>
+                            <td style="color: var(--danger); font-weight: bold;">2 Kredit</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: bold;"><i class="fa-solid fa-video" style="color:#3b82f6;"></i> AI Motion Video</td>
+                            <td>HD 5 Detik</td>
+                            <td style="color: var(--danger); font-weight: bold;">3 Kredit</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="custom-apaya-modal" class="modal-overlay">
+        <div class="modal-box">
+            <i id="cam-modal-icon" class="fa-solid fa-circle-info" style="font-size:50px; color:var(--primary); margin-bottom:20px;"></i>
+            <h3 id="cam-modal-title" style="margin-top:0; color:white; font-size:24px;">Informasi</h3>
+            <p id="cam-modal-desc" style="font-size:13px; color:var(--text-muted); line-height:1.5; margin-bottom: 25px;"></p>
+            <button class="btn-export" style="width: 50%; margin: 0 auto;" onclick="document.getElementById('custom-apaya-modal').style.display='none'">MENGERTI</button>
+        </div>
+    </div>
+
+    <div id="toast-container" class="toast-container"></div>
+
+    <div id="material-result-modal" class="modal-overlay">
+        <div class="modal-box modal-box-large" style="height: 70vh; width: 60%; max-width: 800px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0; color:var(--primary); font-size:20px;"><i class="fa-solid fa-chess-board"></i> Hasil Extracted Material</h3>
+                <button class="icon-btn" onclick="document.getElementById('material-result-modal').style.display='none'"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div style="flex: 1; position: relative; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); margin: 20px 0; background: #000; display: flex; align-items: center; justify-content: center;">
+                <img id="mat-final-result" src="" style="max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0 0 20px rgba(0,0,0,0.8);">
+            </div>
+            <div style="display: flex; gap: 15px; margin-top: auto;">
+                <button class="btn-export" style="background:var(--secondary); color:white; flex: 1;" onclick="document.getElementById('material-result-modal').style.display='none'">Tutup</button>
+                <button class="btn-export" style="flex: 2;" onclick="downloadMaterial()"><i class="fa-solid fa-download"></i> Download Seamless PBR</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="rename-overlay" class="modal-overlay">
+        <div class="modal-box">
+            <h3 style="margin-top:0; color:white;">Ganti Nama Kamera</h3>
+            <input type="text" id="rename-input" class="input-box-modal" placeholder="Ketik nama baru...">
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-export" style="background:var(--secondary); color:white; flex:1;" onclick="closeRenameModal()">Batal</button>
+                <button class="btn-export" style="flex:1;" onclick="confirmRename()">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="delete-overlay" class="modal-overlay">
+        <div class="modal-box danger-box">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size:50px; color:var(--danger); margin-bottom:20px;"></i>
+            <h3 style="margin-top:0; color:white;">Hapus Kamera</h3>
+            <p id="delete-desc" style="font-size:13px; color:var(--text-muted); margin-bottom:25px;"></p>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-export" style="background:var(--secondary); color:white; flex:1;" onclick="closeDeleteModal()">Batal</button>
+                <button class="btn-export btn-danger" style="flex:1;" onclick="confirmDelete()">Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="progress-overlay" class="modal-overlay">
+        <div class="modal-box">
+            <img src="../assets/logo_apaya.png" class="spin-logo" style="width:40px;height:40px;display:inline-block;vertical-align:middle;margin-right:10px;"><span style="color:var(--primary); font-size:18px; font-weight:bold;">Mengekspor...</span>
+            <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+            <p id="progress-text" style="font-weight:bold; color:white;">0%</p>
+        </div>
+    </div>
+
+    <div id="success-overlay" class="modal-overlay">
+        <div class="modal-box" style="border-color: #4ade80;">
+            <i class="fa-solid fa-circle-check" style="font-size:50px; color:#4ade80; margin-bottom:20px;"></i>
+            <h3 style="margin-top:0; color:white;">Export Selesai!</h3>
+            <p id="success-desc" style="font-size:13px; color:var(--text-muted); margin-bottom:25px;"></p>
+            <button class="btn-export" style="background:#4ade80; color:black;" onclick="document.getElementById('success-overlay').style.display='none'">TUTUP</button>
+        </div>
+    </div>
+
+    <script>
+        let adminWhatsApp = '6285742453372';
+        let activeProcessTab = 'camera';
+        let currentCredits = 0; 
+        const DUMMY_BEFORE_IMG = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600' style='background:%232a2d3d'%3E%3Ctext x='50%25' y='50%25' fill='%23FACC15' font-size='24' font-family='Arial' text-anchor='middle' dy='.3em'%3EDummy Preview (Belum Render)%3C/text%3E%3C/svg%3E";
+
+        function verifyLicense() {
+            const key = document.getElementById('license-key-input').value.trim();
+            if(!key) { showApayaModal('Error', 'Masukkan License Key!', 'fa-key', 'var(--danger)'); return; }
+            document.getElementById('ui-credit-balance').innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i>`;
+            if(typeof sketchup !== 'undefined') sketchup.verify_license(key);
+        }
+        function setInitLicense(key, credits) {
+            document.getElementById('license-key-input').value = key; 
+            updateCreditDisplay(credits);
+            
+            const isFree = key.toUpperCase().startsWith('FREE-') || key.toUpperCase().startsWith('TRIAL-');
+            const elements = [
+                document.getElementById('btn-generate-motion'),
+                document.getElementById('btn-generate-upscale'),
+                document.getElementById('r-res-4k')
+            ];
+            
+            elements.forEach(el => {
+                if (el) {
+                    if (isFree) el.classList.add('locked-feature');
+                    else el.classList.remove('locked-feature');
+                }
+            });
+        }
+        function updateCreditDisplay(amount) {
+            currentCredits = amount;
+            const el = document.getElementById('ui-credit-balance');
+            if (el) {
+                el.innerHTML = `<i class="fa-solid fa-coins"></i> ${amount}`;
+                el.classList.remove('credit-pulse');
+                void el.offsetWidth; // Trigger reflow to restart animation
+                el.classList.add('credit-pulse');
+            }
+        }
+
+        function showToast(title, desc, icon = 'fa-circle-info', color = 'var(--primary)') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.style.borderLeft = `4px solid ${color}`;
+            toast.innerHTML = `
+                <i class="fa-solid ${icon}" style="color: ${color}"></i>
+                <div class="toast-body">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-desc">${desc}</div>
+                </div>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('toast-out');
+                toast.addEventListener('animationend', () => {
+                    toast.remove();
+                });
+            }, 4000);
+        }
+
+        function setGeneratingState(isGenerating) {
+            const btnRender = document.getElementById('btn-render-single');
+            const btnConcept = document.getElementById('btn-concept');
+            const btnExtract = document.getElementById('btn-extract');
+            if (isGenerating) {
+                if (btnRender) btnRender.disabled = true;
+                if (btnConcept) btnConcept.disabled = true;
+                if (btnExtract) btnExtract.disabled = true;
+            } else {
+                if (btnRender) btnRender.disabled = false;
+                if (btnConcept) btnConcept.disabled = false;
+                if (btnExtract) btnExtract.disabled = false;
+            }
+        }
+
+        function openTopupModal() { document.getElementById('topup-overlay').style.display = 'flex'; document.getElementById('topup-amount').focus(); }
+        function closeTopupModal() { document.getElementById('topup-overlay').style.display = 'none'; }
+        
+        // --- Fungsi Buka/Tutup Pricelist
+        function sendTopupWA(packageName) {
+            window.open(`https://wa.me/${adminWhatsApp}?text=${encodeURIComponent(`Halo Admin Apaya Studio, saya mau order *${packageName}* nih. Tolong info pembayarannya ya!`)}`, '_blank');
+            closeTopupModal();
+        }
+
+        function showApayaModal(title, desc, iconClass, iconColor) {
+            document.getElementById('cam-modal-title').innerText = title;
+            document.getElementById('cam-modal-desc').innerText = desc;
+            const icon = document.getElementById('cam-modal-icon');
+            icon.className = "fa-solid " + iconClass;
+            icon.style.color = iconColor || "var(--primary)";
+            document.getElementById('custom-apaya-modal').style.display = 'flex';
+            setGeneratingState(false);
+        }
+
+        function switchTab(tabId, iconEl) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-icon').forEach(i => i.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active'); iconEl.classList.add('active');
+
+            if (tabId === 'tab-concept') activeProcessTab = 'concept';
+            else if (tabId === 'tab-render') activeProcessTab = 'render';
+            else if (tabId === 'tab-mat') activeProcessTab = 'material';
+            else if (tabId === 'tab-motion') activeProcessTab = 'motion';
+            else if (tabId === 'tab-upscale') activeProcessTab = 'upscale';
+            else if (tabId === 'tab-swap') activeProcessTab = 'swap';
+            else activeProcessTab = 'camera';
+            document.getElementById('sidebar-manager').style.display = 'none';
+            document.getElementById('sidebar-concept').style.display = 'none';
+            document.getElementById('sidebar-material').style.display = 'none';
+            document.getElementById('sidebar-upscale').style.display = 'none';
+            document.getElementById('sidebar-motion').style.display = 'none';
+
+            if(tabId === 'tab-concept' || tabId === 'tab-render') { document.getElementById('sidebar-concept').style.display = 'flex'; loadConceptThumbs(); } 
+            else if (tabId === 'tab-mat') { document.getElementById('sidebar-material').style.display = 'flex'; loadMaterialThumbs(); } 
+            else if (tabId === 'tab-upscale') { document.getElementById('sidebar-upscale').style.display = 'flex'; loadUpscaleHistory(); }
+            else if (tabId === 'tab-motion') { document.getElementById('sidebar-motion').style.display = 'flex'; loadMotionHistory(); }
+            else if (tabId === 'tab-swap') { /* No sidebar needed */ }
+            else { document.getElementById('sidebar-manager').style.display = 'flex'; }
+            if (typeof updateComingSoonOverlay === 'function') updateComingSoonOverlay();
+        }
+
+        let currentEnvC = "interior"; let currentEnvR = "interior";
+        function setEnv(env, isRender = false) {
+            const prefix = isRender ? 'r-' : '';
+            if(isRender) currentEnvR = env; else currentEnvC = env;
+            document.getElementById(prefix + 'env-int').className = (env === 'interior' ? 'env-box active' : 'env-box');
+            document.getElementById(prefix + 'env-ext').className = (env === 'exterior' ? 'env-box active' : 'env-box');
+            document.getElementById(prefix + 'panel-exterior').style.display = (env === 'exterior') ? 'flex' : 'none';
+        }
+
+        function toggleDD(e, listId) {
+            e.stopPropagation();
+            document.querySelectorAll('.dropdown-list').forEach(l => { if(l.id !== listId) l.classList.remove('show'); });
+            const list = document.getElementById(listId); list.classList.toggle('show');
+            if(list.classList.contains('show')) list.parentElement.classList.add('active'); else list.parentElement.classList.remove('active');
+        }
+        function selectDD(e, parentId, inputId, textId, val, text) {
+            e.stopPropagation(); document.getElementById(textId).innerText = text; document.getElementById(inputId).value = val;
+            document.getElementById(parentId).querySelector('.dropdown-list').classList.remove('show'); document.getElementById(parentId).classList.remove('active');
+        }
+        window.addEventListener('click', () => { document.querySelectorAll('.dropdown-list').forEach(l => l.classList.remove('show')); document.querySelectorAll('.custom-select').forEach(s => s.classList.remove('active')); });
+
+        function setPromptMode(mode, isRender = false) {
+            const prefix = isRender ? 'r-' : ''; const isAuto = mode === 'auto';
+            if(document.getElementById(prefix + 'btn-auto')) {
+                document.getElementById(prefix + 'btn-auto').className = isAuto ? 'switch-btn-small active' : 'switch-btn-small';
+                document.getElementById(prefix + 'btn-manual').className = isAuto ? 'switch-btn-small' : 'switch-btn-small active';
+            }
+            const promptBox = document.getElementById(prefix + 'ai-prompt');
+            promptBox.disabled = isAuto; promptBox.style.opacity = isAuto ? 0.5 : 1; if(!isAuto) promptBox.focus();
+        }
+
+        // =====================================
+        // MATERIAL BOARD DRAG & DROP LOGIC
+        // =====================================
+        let materialBoardBase64 = "";
+        document.addEventListener("DOMContentLoaded", () => {
+            const dropZone = document.getElementById('ref-upload-box');
+            if(dropZone) {
+                dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--orange)'; dropZone.style.background = 'rgba(251, 146, 60, 0.1)'; });
+                dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--primary)'; dropZone.style.background = 'rgba(250, 204, 21, 0.05)'; });
+                dropZone.addEventListener('drop', (e) => {
+                    e.preventDefault(); dropZone.style.borderColor = 'var(--primary)'; dropZone.style.background = 'rgba(250, 204, 21, 0.05)';
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        const file = e.dataTransfer.files[0];
+                        if (file.type.startsWith('image/')) processRefFile(file); else showApayaModal("Format Tidak Didukung", "Silakan masukkan file berupa gambar (JPG/PNG).", "fa-triangle-exclamation", "var(--danger)");
+                    }
+                });
+            }
+
+            const matDropZone = document.getElementById('mat-drop-zone');
+            if(matDropZone) {
+                matDropZone.addEventListener('dragover', (e) => { e.preventDefault(); matDropZone.style.borderColor = 'var(--primary)'; });
+                matDropZone.addEventListener('dragleave', (e) => { e.preventDefault(); matDropZone.style.borderColor = 'var(--border)'; });
+                matDropZone.addEventListener('drop', (e) => {
+                    e.preventDefault(); matDropZone.style.borderColor = 'var(--border)';
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        const file = e.dataTransfer.files[0];
+                        if (file.type.startsWith('image/')) processMatLocalFile(file);
+                    }
+                });
+                document.getElementById('mat-placeholder').onclick = () => document.getElementById('mat-file-input').click();
+            }
+        });
+
+        function loadRefImage(event) { const file = event.target.files[0]; if(!file) return; processRefFile(file); }
+        function processRefFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('ref-preview').src = e.target.result; document.getElementById('ref-preview').style.display = 'block';
+                document.getElementById('ref-remove').style.display = 'flex'; materialBoardBase64 = e.target.result.split(',')[1];
+            };
+            reader.readAsDataURL(file);
+        }
+        function removeRefImage() { document.getElementById('ref-preview').src = ""; document.getElementById('ref-preview').style.display = 'none'; document.getElementById('ref-remove').style.display = 'none'; document.getElementById('ref-file-input').value = ""; materialBoardBase64 = ""; }
+
+        function loadMatLocalImage(event) { const file = event.target.files[0]; if(!file) return; processMatLocalFile(file); }
+        function processMatLocalFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('mat-placeholder').style.display = 'none'; document.getElementById('mat-canvas-container').style.display = 'flex';
+                const matImg = document.getElementById('mat-preview-img');
+                matImg.onload = function() { initCanvas(); }
+                matImg.src = e.target.result; switchTab('tab-mat', document.querySelectorAll('.tab-icon')[2]);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        let selectedConceptCam = "";
+        function loadConceptThumbs(btn) {
+            if(btn) { const icon = btn.querySelector('i'); icon.classList.add('fa-spin'); setTimeout(() => icon.classList.remove('fa-spin'), 800); }
+            const listDiv = document.getElementById('concept-thumb-list'); listDiv.innerHTML = '';
+            if(currentCameras.length === 0) { listDiv.innerHTML = '<p style="color:var(--text-muted); font-size: 11px; text-align: center;">Belum ada kamera.</p>'; return; }
+            const fragment = document.createDocumentFragment();
+            currentCameras.forEach(cam => {
+                const isPt = cam.type.toLowerCase().includes('portrait'); const badgeColor = isPt ? 'var(--orange)' : 'var(--primary)'; const icon = isPt ? 'fa-mobile-screen' : 'fa-desktop';
+                const card = document.createElement('div'); card.className = selectedConceptCam === cam.name ? 'thumb-card active' : 'thumb-card'; card.onclick = () => selectConceptCamera(cam.name, card);
+                card.innerHTML = `<div class="thumb-img-box"><i class="fa-solid ${icon}"></i></div><div class="thumb-info"><span class="thumb-name">${cam.name}</span><span style="font-size:9px; color:${badgeColor}; font-weight:bold;">${cam.type}</span></div>`;
+                fragment.appendChild(card);
+            });
+            listDiv.appendChild(fragment);
+        }
+
+        function selectConceptCamera(camName, cardElement) {
+            document.querySelectorAll('.thumb-card').forEach(c => c.classList.remove('active')); cardElement.classList.add('active'); selectedConceptCam = camName;
+            
+            if(activeProcessTab === 'concept') { 
+                document.getElementById('ai-placeholder').style.display = 'none'; 
+                document.getElementById('ba-container').style.display = 'none'; 
+                document.getElementById('ai-loading-overlay').style.display = 'flex';
+                document.getElementById('loading-text').innerText = "MENGAMBIL GAMBAR SKETCHUP...";
+            } 
+            else if (activeProcessTab === 'render') { 
+                document.getElementById('r-placeholder').style.display = 'none'; 
+                document.getElementById('r-ba-container').style.display = 'none'; 
+                document.getElementById('r-loading-overlay').style.display = 'flex';
+                document.getElementById('r-loading-text').innerText = "MENGAMBIL GAMBAR SKETCHUP...";
+            }
+
+            setTimeout(() => {
+                if(typeof sketchup !== 'undefined') {
+                    sketchup.get_scene_thumbnail(camName); 
+                } else {
+                    setTimeout(() => { setBeforeImage(DUMMY_BEFORE_IMG); }, 800);
+                }
+            }, 100);
+        }
+
+        function setBeforeImage(base64Image) {
+            let finalSrc = base64Image.startsWith('data:') ? base64Image : "data:image/png;base64," + base64Image;
+            
+            if(activeProcessTab === 'concept') {
+                document.getElementById('ai-loading-overlay').style.display = 'none'; 
+                document.getElementById('ba-container').style.display = 'block'; 
+                document.getElementById('img-before').src = finalSrc;
+                document.getElementById('img-after').style.display = 'none'; 
+                document.getElementById('ba-handle').style.display = 'none'; 
+                document.getElementById('ba-slider').style.display = 'none';
+            } else if (activeProcessTab === 'render') {
+                document.getElementById('r-loading-overlay').style.display = 'none'; 
+                document.getElementById('r-ba-container').style.display = 'block'; 
+                document.getElementById('r-img-before').src = finalSrc;
+                document.getElementById('r-img-after').style.display = 'none'; 
+                document.getElementById('r-ba-handle').style.display = 'none'; 
+                document.getElementById('r-ba-slider').style.display = 'none';
+            }
+        }
+
+        function updateBASlider(val) { document.getElementById('img-after').style.clipPath = `inset(0 0 0 ${val}%)`; document.getElementById('ba-handle').style.left = val + '%'; }
+        function updateRenderBASlider(val) { document.getElementById('r-img-after').style.clipPath = `inset(0 0 0 ${val}%)`; document.getElementById('r-ba-handle').style.left = val + '%'; }
+
+        // =====================================
+        // GENERATE CONCEPT & RENDER (API)
+        // =====================================
+        function triggerAIGenerate(isRender = false, resolution = '2k') {
+            const key = document.getElementById('license-key-input').value.trim().toUpperCase();
+            if(isRender && resolution === '4k' && (key.startsWith('FREE-') || key.startsWith('TRIAL-'))) {
+                showApayaModal('Akses Ditolak', 'Fitur Render 4K eksklusif untuk lisensi Premium (Starter/Pro/Studio). Silakan Top Up untuk mengaktifkan.', 'fa-lock', 'var(--danger)');
+                return;
+            }
+            const prefix = isRender ? 'r-' : '';
+            const taskType = isRender ? (resolution === '4k' ? 'render_4k' : 'render') : 'concept';
+            const cost = 1; 
+
+            if(currentCredits < cost) { showApayaModal("Kredit Habis!", `Saldo tidak mencukupi. Butuh ${cost} kredit.`, "fa-coins", "var(--orange)"); return; }
+            if(!selectedConceptCam) { showApayaModal("Kamera Belum Dipilih", "Silakan pilih kamera terlebih dahulu dari daftar di sebelah kiri.", "fa-camera", "var(--orange)"); return; }
+            
+            setGeneratingState(true);
+
+            const promptBox = document.getElementById(prefix + 'ai-prompt');
+            const manualPrompt = promptBox.value; const isAuto = promptBox.disabled; 
+            
+            if (!isRender && manualPrompt.trim() === "") { showApayaModal("Conceptor Prompt Kosong", "Area prompt wajib diisi!", "fa-pen", "var(--danger)"); return; }
+            if (isRender && !isAuto && manualPrompt.trim() === "") { showApayaModal("Prompt Manual Kosong", "Area prompt wajib diisi jika mode MANUAL.", "fa-pen", "var(--danger)"); return; }
+
+            document.getElementById(isRender ? 'r-placeholder' : 'ai-placeholder').style.display = 'none';
+            document.getElementById(prefix + 'ba-container').style.display = 'block';
+            document.getElementById(isRender ? 'r-action-bar' : 'concept-action-bar').style.display = 'none';
+            
+            document.getElementById(prefix + 'img-after').style.display = 'none';
+            document.getElementById(prefix + 'ba-handle').style.display = 'none';
+            document.getElementById(prefix + 'ba-slider').style.display = 'none';
+            
+            document.getElementById(isRender ? 'r-loading-overlay' : 'ai-loading-overlay').style.display = 'flex';
+            
+            if(isRender) {
+                document.getElementById('r-loading-text').innerText = "GENERATING YOUR FINAL IDEA...";
+            } else {
+                document.getElementById('loading-text').innerText = "GENERATING YOUR CONCEPT IDEA...";
+            }
+
+            const style = document.getElementById(prefix + 'val-style').value;
+            const denoise = 0.5; // Removed from UI
+            
+            const currentEnv = isRender ? currentEnvR : currentEnvC;
+            const waktu = document.getElementById(prefix + 'val-waktu') ? document.getElementById(prefix + 'val-waktu').value : "siang";
+            const lampuToggle = document.getElementById(prefix + 'toggle-lampu');
+            const lampu = lampuToggle ? lampuToggle.checked : false;
+            const kendaraanDrop = document.getElementById(prefix + 'val-kendaraan');
+            const kendaraan = kendaraanDrop ? kendaraanDrop.value : "";
+            const vegetasiDrop = document.getElementById(prefix + 'val-vegetasi');
+            const vegetasi = vegetasiDrop ? vegetasiDrop.value : "";
+
+            const promptData = {
+                manual_prompt: manualPrompt,
+                waktu: waktu,
+                env: currentEnv,
+                lampu: lampu,
+                kendaraan: kendaraan,
+                vegetasi: vegetasi
+            };
+            const payloadString = JSON.stringify(promptData);
+
+            setTimeout(() => {
+                if(typeof sketchup !== 'undefined') {
+                    sketchup.generate_ai_concept([style, payloadString, denoise, selectedConceptCam, materialBoardBase64, taskType]);
+                } else {
+                    setTimeout(() => { showAIResult(DUMMY_BEFORE_IMG, taskType); }, 2000);
+                }
+            }, 100);
+        }
+
+        function showAIResult(imageUrl, taskType = 'concept') {
+            try {
+                setGeneratingState(false);
+                const isRender = taskType === 'render' || taskType === 'render_4k';
+                const prefix = isRender ? 'r-' : '';
+                const actionId = isRender ? 'r-action-bar' : 'concept-action-bar';
+
+                document.getElementById(isRender ? 'r-loading-overlay' : 'ai-loading-overlay').style.display = 'none';
+                document.getElementById(prefix + 'ba-container').style.display = 'block';
+                
+                const imgAfter = document.getElementById(prefix + 'img-after');
+                
+                let cleanUrl = imageUrl.trim().replace(/^"|"$/g, '').replace(/\s/g, '');
+                let finalSrc = cleanUrl;
+                if (!cleanUrl.startsWith('http') && !cleanUrl.startsWith('data:')) {
+                    finalSrc = "data:image/png;base64," + cleanUrl;
+                }
+                
+                imgAfter.src = finalSrc;
+                imgAfter.style.filter = "contrast(1.1) brightness(1.05)";
+                imgAfter.style.display = 'block';
+                
+                document.getElementById(prefix + 'ba-slider').value = 50;
+                if(isRender) updateRenderBASlider(50); else updateBASlider(50);
+                
+                document.getElementById(prefix + 'ba-handle').style.display = 'block';
+                document.getElementById(prefix + 'ba-slider').style.display = 'block';
+                
+                if(document.getElementById(actionId)) {
+                    document.getElementById(actionId).style.display = 'flex';
+                }
+                
+                // Realtime History Append
+                const historyLabel = isRender ? `Render_${new Date().toLocaleTimeString().replace(/:/g,'')}` : `Concept_${new Date().toLocaleTimeString().replace(/:/g,'')}`;
+                if(finalSrc && finalSrc.length > 100 && !finalSrc.includes('localhost')) {
+                    const listDiv = document.getElementById('material-thumb-list');
+                    const p = listDiv.querySelector('p');
+                    if (p) p.remove();
+                    listDiv.insertBefore(createMatThumbCard(historyLabel, finalSrc), listDiv.firstChild);
+                }
+            } catch(err) {
+                console.error("Error di showAIResult: ", err);
+                alert("Layar gagal ngerender karena: " + err.message);
+            }
+        }
+        
+        function setRenderRes(res) {
+            document.getElementById('r-res-2k').classList.remove('active');
+            document.getElementById('r-res-4k').classList.remove('active');
+            document.getElementById('r-res-' + res).classList.add('active');
+            document.getElementById('btn-render-single').dataset.res = res;
+            document.getElementById('r-btn-text').innerText = res === '4k' ? 'START RENDER (2 Cr)' : 'START RENDER (1 Cr)';
+        }
+
+
+        function saveGallery(tabType) {
+            const imgId = tabType === 'render' ? 'r-img-after' : 'img-after';
+            const srcRaw = document.getElementById(imgId).src;
+            const base64 = srcRaw.includes(',') ? srcRaw.split(',')[1] : srcRaw;
+            showApayaModal("Simpan Hasil Render", "Silakan tentukan nama file dan folder tujuan pada jendela sistem Windows.", "fa-folder-open", "var(--orange)");
+            setTimeout(() => { if(typeof sketchup !== 'undefined') sketchup.save_to_gallery(base64); }, 1000);
+        }
+
+        // =====================================
+        // MATERIAL ALCHEMIST KE API 
+        // =====================================
+        function loadMaterialThumbs(btn) {
+            if(btn) { const icon = btn.querySelector('i'); icon.classList.add('fa-spin'); setTimeout(() => icon.classList.remove('fa-spin'), 800); }
+            const listDiv = document.getElementById('material-thumb-list'); listDiv.innerHTML = '';
+            const conceptImg = document.getElementById('img-after').src; const renderImg = document.getElementById('r-img-after').src; let added = false;
+            if(renderImg && renderImg.length > 500 && !renderImg.includes('localhost')) { listDiv.appendChild(createMatThumbCard('Final_Render_Current', renderImg)); added = true; }
+            if(conceptImg && conceptImg.length > 500 && !conceptImg.includes('localhost')) { listDiv.appendChild(createMatThumbCard('Concept_Current', conceptImg)); added = true; }
+            if(!added) listDiv.innerHTML = '<p style="color:var(--text-muted); font-size: 11px; text-align: center; margin-top: 20px;">Belum ada hasil render. Generate dulu di Tab Concept / Render.</p>';
+        }
+
+        function createMatThumbCard(name, src) {
+            const card = document.createElement('div'); card.className = 'thumb-card';
+            card.onclick = () => {
+                document.querySelectorAll('#material-thumb-list .thumb-card').forEach(c => c.classList.remove('active')); card.classList.add('active');
+                document.getElementById('mat-placeholder').style.display = 'none'; document.getElementById('mat-canvas-container').style.display = 'flex';
+                const matImg = document.getElementById('mat-preview-img'); matImg.onload = function() { initCanvas(); }; matImg.src = src;
+            };
+            card.innerHTML = `<div class="thumb-img-box" style="overflow:hidden;"><img src="${src}" style="width:100%; height:100%; object-fit:cover;"></div><div class="thumb-info"><span class="thumb-name">${name}</span><span style="font-size:9px; color:var(--primary); font-weight:bold;">Ready to Extract</span></div>`;
+            return card;
+        }
+
+                function sendTo(tabType, destination) {
+            const imgId = tabType === 'render' ? 'r-img-after' : 'img-after'; 
+            const base64 = document.getElementById(imgId).src;
+            
+            if(destination === 'tab-mat') {
+                switchTab('tab-mat', document.querySelectorAll('.tab-icon')[2]);
+                document.getElementById('mat-placeholder').style.display = 'none'; 
+                document.getElementById('mat-canvas-container').style.display = 'flex';
+                const matImg = document.getElementById('mat-preview-img'); 
+                matImg.onload = function() { initCanvas(); }; matImg.src = base64;
+            } else if(destination === 'tab-swap') {
+                switchTab('tab-swap', document.querySelectorAll('.tab-icon')[4]);
+                document.getElementById('swap-placeholder').style.display = 'none'; 
+                document.getElementById('swap-canvas-container').style.display = 'flex';
+                const matImg = document.getElementById('swap-img-before'); 
+                matImg.onload = function() { initSwapCanvas(); }; matImg.src = base64;
+            } else if(destination === 'tab-motion') {
+                switchTab('tab-motion', document.querySelectorAll('.tab-icon')[5]);
+                document.getElementById('motion-drop-text').style.display = 'none';
+                document.getElementById('motion-drop-zone').querySelector('i').style.display = 'none';
+                const mImg = document.getElementById('motion-preview-img');
+                mImg.style.display = 'block';
+                mImg.src = base64;
+            }
+        }
+
+        let isDrawing = false;
+        let matCanvas = document.getElementById('mat-canvas');
+        let matCtx = matCanvas.getContext('2d');
+        let mouseX = 0;
+        let mouseY = 0;
+        let needsDraw = false;
+
+        function initCanvas() {
+            const img = document.getElementById('mat-preview-img');
+            if (!img || img.clientWidth === 0) return;
+            
+            matCanvas.width = img.clientWidth;
+            matCanvas.height = img.clientHeight;
+            
+            // Align canvas precisely on top of the image
+            matCanvas.style.width = img.clientWidth + 'px';
+            matCanvas.style.height = img.clientHeight + 'px';
+            matCanvas.style.left = img.offsetLeft + 'px';
+            matCanvas.style.top = img.offsetTop + 'px';
+            
+            matCtx.strokeStyle = 'rgba(250, 204, 21, 0.5)';
+            matCtx.lineWidth = document.getElementById('brush-size').value;
+            matCtx.lineCap = 'round';
+            matCtx.lineJoin = 'round';
+        }
+
+        window.addEventListener('resize', () => {
+            if (document.getElementById('mat-canvas-container').style.display !== 'none') {
+                initCanvas();
+            }
+        });
+
+        function startDraw(e) {
+            isDrawing = true;
+            const rect = matCanvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+            matCtx.beginPath();
+            matCtx.moveTo(mouseX, mouseY);
+            drawLoop();
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            const rect = matCanvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+            needsDraw = true;
+        }
+
+        function drawLoop() {
+            if (!isDrawing) return;
+            if (needsDraw) {
+                matCtx.lineTo(mouseX, mouseY);
+                matCtx.stroke();
+                matCtx.beginPath();
+                matCtx.moveTo(mouseX, mouseY);
+                needsDraw = false;
+            }
+            requestAnimationFrame(drawLoop);
+        }
+
+        function stopDraw() {
+            isDrawing = false;
+            needsDraw = false;
+        }
+
+        function clearMask() {
+            matCtx.clearRect(0, 0, matCanvas.width, matCanvas.height);
+        }
+
+        // --- FUNGSI EXTRACT SAKTI (AUTO-CROP JS) ---
+        function extractMaterial() {
+            const cost = 1; 
+            if(currentCredits < cost) { showApayaModal("Kredit Habis!", "Saldo kredit Anda tidak mencukupi.", "fa-coins", "var(--orange)"); return; }
+
+            // 1. SCAN AREA: Cari koordinat dari coretan kuning lu
+            const maskData = matCtx.getImageData(0, 0, matCanvas.width, matCanvas.height);
+            let minX = matCanvas.width, minY = matCanvas.height, maxX = 0, maxY = 0;
+            let hasPixels = false;
+
+            for (let y = 0; y < matCanvas.height; y++) {
+                for (let x = 0; x < matCanvas.width; x++) {
+                    const alpha = maskData.data[(y * matCanvas.width + x) * 4 + 3];
+                    if (alpha > 0) {
+                        if (x < minX) minX = x;
+                        if (x > maxX) maxX = x;
+                        if (y < minY) minY = y;
+                        if (y > maxY) maxY = y;
+                        hasPixels = true;
+                    }
+                }
+            }
+
+            if (!hasPixels) {
+                showApayaModal("Marker Kosong!", "Silakan coret/tandai area material terlebih dahulu.", "fa-paintbrush", "var(--orange)");
+                return;
+            }
+
+            document.getElementById('mat-loading-overlay').style.display = 'flex';
+            setGeneratingState(true);
+
+            // 2. TENTUKAN AREA POTONGAN (Kasih padding dikit biar aman)
+            const padding = 10;
+            let finalMinX = Math.max(0, minX - padding);
+            let finalMinY = Math.max(0, minY - padding);
+            let finalMaxX = Math.min(matCanvas.width, maxX + padding);
+            let finalMaxY = Math.min(matCanvas.height, maxY + padding);
+
+            const cropWidth = finalMaxX - finalMinX;
+            const cropHeight = finalMaxY - finalMinY;
+
+            // 3. AMBIL GAMBAR ASLI BERSIH HIGH-RES (Tanpa Coretan Kuning)
+            const img = document.getElementById('mat-preview-img');
+            
+            // Hitung skala koordinat display ke koordinat resolusi asli gambar
+            const scaleX = img.naturalWidth / matCanvas.width;
+            const scaleY = img.naturalHeight / matCanvas.height;
+
+            const natMinX = finalMinX * scaleX;
+            const natMinY = finalMinY * scaleY;
+            const natCropWidth = cropWidth * scaleX;
+            const natCropHeight = cropHeight * scaleY;
+            const natSize = Math.max(natCropWidth, natCropHeight);
+
+            // Buat canvas untuk potongan (selalu bujur sangkar / square)
+            const cropCanvas = document.createElement('canvas');
+            cropCanvas.width = natSize;
+            cropCanvas.height = natSize;
+            const cropCtx = cropCanvas.getContext('2d');
+
+            // Hitung offset agar hasil potongan di-center di dalam canvas bujur sangkar
+            const natOffsetX = (natSize - natCropWidth) / 2;
+            const natOffsetY = (natSize - natCropHeight) / 2;
+
+            // Draw crop directly from the high-res image
+            cropCtx.drawImage(img, natMinX, natMinY, natCropWidth, natCropHeight, natOffsetX, natOffsetY, natCropWidth, natCropHeight);
+
+            const cleanCroppedBase64 = cropCanvas.toDataURL('image/jpeg', 0.95);
+
+            // 4. PROMPT OTOMATIS (Tanpa Butuh Ketikan User)
+            const matHint = document.getElementById('mat-prompt').value.trim();
+            const materialName = matHint !== "" ? matHint : "this material texture";
+            
+            const alchemistPrompt = `Create a high-quality, front-facing, macro detail, perfectly flat, seamless, tileable PBR diffuse basecolor texture of: ${materialName}.
+CRITICAL INSTRUCTIONS FOR COLOR & TEXTURE FIDELITY:
+- Match the EXACT colors, color tones, grain direction, pattern scale, and tactile details from the uploaded cropped reference image.
+- Preserve the precise color palette of the reference image; do not change the hue or saturation.
+- If the reference shows wood, generate a corresponding seamless wood texture matching that specific color and grain.
+- Uniform flat lighting, no reflections, no shadows, no specular highlights, no gloss, no background, no perspective.`;
+            
+            const taskType = 'alchemist';
+
+            setTimeout(() => {
+                if(typeof sketchup !== 'undefined') {
+                    sketchup.request_alchemist([cleanCroppedBase64, alchemistPrompt, taskType]);
+                } else {
+                    setTimeout(() => { showAlchemistResult(cleanCroppedBase64); }, 3000);
+                }
+            }, 100);
+        }
+
+        function showAlchemistResult(imageUrl) {
+            document.getElementById('mat-loading-overlay').style.display = 'none';
+            setGeneratingState(false);
+            const finalImg = document.getElementById('mat-final-result');
+            
+            let cleanUrl = imageUrl.trim().replace(/^"|"$/g, '').replace(/\s/g, '');
+            let finalSrc = cleanUrl;
+            if (!cleanUrl.startsWith('http') && !cleanUrl.startsWith('data:')) finalSrc = "data:image/png;base64," + cleanUrl;
+            
+            finalImg.src = finalSrc; 
+            finalImg.style.objectFit = 'cover'; finalImg.style.width = '350px'; finalImg.style.height = '350px'; 
+            document.getElementById('material-result-modal').style.display = 'flex';
+
+            updateCreditDisplay(currentCredits - 1);
+        }
+
+        function downloadMaterial() {
+            showApayaModal("Simpan Textures", "Silakan tentukan folder untuk menyimpan file tekstur PBR (Albedo, Normal, Roughness).", "fa-folder-open", "var(--orange)");
+            setTimeout(() => { document.getElementById('custom-apaya-modal').style.display = 'none'; document.getElementById('material-result-modal').style.display = 'none'; }, 1500);
+        }
+
+        // =====================================
+
+        function claimFreeCredit() {
+            window.open(`https://wa.me/${adminWhatsApp}?text=${encodeURIComponent(`Halo Admin Apaya Studio, saya mau claim promo free credit untuk Apaya Studio!`)}`, '_blank');
+        }
+
+        window.appConfig = null;
+        function applyRemoteConfig(config) {
+            window.appConfig = config;
+            if (config.whatsapp_number) {
+                let cleanNum = config.whatsapp_number.replace(/[^0-9]/g, '');
+                if (cleanNum.startsWith('0')) {
+                    cleanNum = '62' + cleanNum.substring(1);
+                }
+                if (cleanNum) adminWhatsApp = cleanNum;
+            }
+            const claimBtn = document.getElementById('btn-claim-free');
+            if (claimBtn) {
+                if (config.show_claim_button) {
+                    claimBtn.style.display = 'block';
+                } else {
+                    claimBtn.style.display = 'none';
+                }
+            }
+            updateComingSoonOverlay();
+        }
+
+        function updateComingSoonOverlay() {
+            if (!window.appConfig) return;
+
+            const isAiTab = (activeProcessTab !== 'camera');
+            const shouldShow = !window.appConfig.enable_ai_features && isAiTab;
+
+            let overlay = document.getElementById('coming-soon-overlay');
+
+            if (shouldShow) {
+                if (!overlay) {
+                    overlay = document.createElement('div');
+                    overlay.id = 'coming-soon-overlay';
+                    overlay.style.position = 'fixed';
+                    overlay.style.top = '0';
+                    overlay.style.left = '85px';
+                    overlay.style.width = 'calc(100% - 85px)';
+                    overlay.style.height = '100%';
+                    overlay.style.background = 'rgba(0,0,0,0.75)';
+                    overlay.style.backdropFilter = 'blur(8px)';
+                    overlay.style.zIndex = '99999';
+                    overlay.style.display = 'flex';
+                    overlay.style.flexDirection = 'column';
+                    overlay.style.justifyContent = 'center';
+                    overlay.style.alignItems = 'center';
+                    overlay.style.gap = '16px';
+                    overlay.innerHTML = '<i class="fa-solid fa-rocket" style="font-size:60px; color:var(--primary); text-shadow:0 0 30px rgba(251,146,60,0.8);"></i>' +
+                        '<h1 style="color:var(--primary); font-size:36px; font-weight:900; letter-spacing:3px; text-shadow:0 0 20px rgba(251,146,60,0.8); margin:0; text-align:center;">COMING SOON NEXT WEEK</h1>' +
+                        '<p style="color:#aaa; font-size:14px; margin:0;">Fitur ini akan tersedia saat official launch 🚀</p>';
+                    document.body.appendChild(overlay);
+                }
+                overlay.style.display = 'flex';
+            } else {
+                if (overlay) overlay.style.display = 'none';
+            }
+        }
+
+        // CAMERA MANAGER INIT
+        // =====================================
+        let currentCameras = []; let activeRes = '4K'; let selectedCameras = new Set(); let hasLoadedFirstTime = false; let cameraToRename = ""; let camerasToDelete = [];
+        function syncRatios() { const pt = document.getElementById('inp-pt').value; const ls = document.getElementById('inp-ls').value; if(typeof sketchup !== 'undefined') sketchup.update_stored_ratios([pt, ls]); updateSummary(); }
+        function makeCam(type) { const ratio = document.getElementById(type === 'portrait' ? 'inp-pt' : 'inp-ls').value; if(typeof sketchup !== 'undefined') sketchup.create_camera([type, ratio]); }
+        function updateCameraList(data) { currentCameras = data; if (!hasLoadedFirstTime && data.length > 0) { data.forEach(c => selectedCameras.add(c.name)); hasLoadedFirstTime = true; } renderTable(); }
+        function toggleCamCb(cb) { if(cb.checked) selectedCameras.add(cb.value); else selectedCameras.delete(cb.value); updateSummary(); }
+        function toggleClearBtn() { 
+            const btn = document.getElementById('clear-search');
+            const hasText = document.getElementById('search-input').value.length > 0;
+            if (hasText && btn.style.display !== 'block') {
+                btn.style.display = 'block';
+                btn.classList.remove('spin-out');
+                btn.classList.add('spin-in');
+            } else if (!hasText && btn.style.display === 'block' && !btn.classList.contains('spin-out')) {
+                btn.classList.remove('spin-in');
+                btn.classList.add('spin-out');
+                setTimeout(() => {
+                    if (document.getElementById('search-input').value.length === 0) {
+                        btn.style.display = 'none';
+                    }
+                }, 300);
+            }
+        }
+        
+        let searchTimeout = null;
+        function filterTable() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                renderTable();
+            }, 250);
+        }
+
+        function clearSearch() { 
+            document.getElementById('search-input').value = ''; 
+            toggleClearBtn(); 
+            clearTimeout(searchTimeout);
+            renderTable(); 
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('camera-list');
+            const search = document.getElementById('search-input').value.toLowerCase();
+            tbody.innerHTML = '';
+            
+            const fragment = document.createDocumentFragment();
+            let maxPx = (activeRes === '2K') ? 1920 : (activeRes === '5K') ? 5000 : (activeRes === '8K') ? 7680 : 3840;
+            
+            currentCameras.forEach((s) => {
+                if(search && !s.name.toLowerCase().includes(search)) return; 
+                const tr = document.createElement('tr');
+                const badgeClass = s.type.toLowerCase().includes('portrait') ? 'portrait' : 'landscape';
+                const isChecked = selectedCameras.has(s.name) ? 'checked' : '';
+                let r = parseFloat(s.aspect);
+                let w = r >= 1 ? maxPx : Math.round(maxPx * r);
+                let h = r >= 1 ? Math.round(maxPx / r) : maxPx;
+                
+                tr.innerHTML = `<td><input type="checkbox" class="cam-cb" value="${s.name}" ${isChecked} onchange="toggleCamCb(this)"></td><td style="font-weight:bold; font-size:13px;">${s.name}</td><td><span class="badge ${badgeClass}">${s.type}</span></td><td>${s.aspect}</td><td style="color:var(--text-muted); font-size:11px;">${w} x ${h}</td><td><button class="icon-btn" onclick="sketchup.activate_camera('${s.name}')"><i class="fa-solid fa-play"></i></button><button class="icon-btn" onclick="openRenameModal('${s.name}')"><i class="fa-solid fa-pen"></i></button><button class="icon-btn delete" onclick="openDeleteModal(['${s.name}'])"><i class="fa-solid fa-trash"></i></button></td>`;
+                fragment.appendChild(tr);
+            });
+            
+            tbody.appendChild(fragment);
+            const visibleCbs = document.querySelectorAll('.cam-cb');
+            document.getElementById('master-cb').checked = (visibleCbs.length > 0 && Array.from(visibleCbs).every(cb => cb.checked));
+            updateSummary();
+        }
+
+        function setRes(res) { activeRes = res; document.querySelectorAll('.res-card').forEach(c => c.classList.remove('active')); document.getElementById('res-' + res).classList.add('active'); renderTable(); }
+        function updateSummary() {
+            const selMode = document.querySelectorAll('.style-cb:checked').length; let ratio = 1.0;
+            if(selectedCameras.size > 0) { const cam = currentCameras.find(c => c.name === Array.from(selectedCameras)[0]); if(cam) ratio = parseFloat(cam.aspect); } else { ratio = parseFloat(document.getElementById('inp-ls').value) || 1.43; }
+            const sizes = { '2K': 1920, '4K': 3840, '5K': 5000, '8K': 7680 };
+            for (let key in sizes) { let w = ratio >= 1 ? sizes[key] : Math.round(sizes[key] * ratio); let h = ratio >= 1 ? Math.round(sizes[key] / ratio) : sizes[key]; document.getElementById('px-' + key).innerText = w + ' x ' + h; }
+            document.getElementById('sum-cam').innerText = selectedCameras.size; document.getElementById('sum-mode').innerText = selMode; let totalImg = selectedCameras.size * selMode; document.getElementById('sum-total').innerText = totalImg;
+            let mb = (activeRes === '2K') ? 2 : (activeRes === '5K') ? 12 : (activeRes === '8K') ? 25 : 6; document.getElementById('sum-size').innerText = `~ ${totalImg * mb} MB`;
+        }
+
+        function toggleMode(el) { const cb = el.querySelector('input'); cb.checked = !cb.checked; el.classList.toggle('active', cb.checked); updateSummary(); }
+        function selectAll(state) { const search = document.getElementById('search-input').value.toLowerCase(); currentCameras.forEach(c => { if(search && !c.name.toLowerCase().includes(search)) return; if(state) selectedCameras.add(c.name); else selectedCameras.delete(c.name); }); renderTable(); }
+        function toggleMaster(el) { selectAll(el.checked); }
+
+        function openRenameModal(oldName) { cameraToRename = oldName; document.getElementById('rename-input').value = oldName; document.getElementById('rename-overlay').style.display = 'flex'; document.getElementById('rename-input').focus(); }
+        function closeRenameModal() { document.getElementById('rename-overlay').style.display = 'none'; }
+        function confirmRename() { const newName = document.getElementById('rename-input').value.trim(); if(newName && newName !== cameraToRename) sketchup.rename_camera([cameraToRename, newName]); closeRenameModal(); }
+        function openDeleteModal(cams) { camerasToDelete = cams; document.getElementById('delete-desc').innerText = cams.length === 1 ? `Apakah Anda yakin ingin menghapus kamera ${cams[0]}?` : `Hapus ${cams.length} kamera yang dipilih?`; document.getElementById('delete-overlay').style.display = 'flex'; }
+        function closeDeleteModal() { document.getElementById('delete-overlay').style.display = 'none'; }
+        function confirmDelete() { if(typeof sketchup !== 'undefined') sketchup.delete_cameras(camerasToDelete); camerasToDelete.forEach(c => selectedCameras.delete(c)); closeDeleteModal(); }
+        function deleteSelected() { const arr = Array.from(selectedCameras); if(arr.length > 0) openDeleteModal(arr); else { showApayaModal("Peringatan", "Pilih minimal 1 kamera terlebih dahulu!", "fa-triangle-exclamation", "var(--danger)"); } }
+
+        function executeExport() {
+            const arr = Array.from(selectedCameras); const styles = Array.from(document.querySelectorAll('.style-cb:checked')).map(cb => cb.value);
+            if(arr.length === 0 || styles.length === 0) { showApayaModal("Peringatan", "Pilih minimal 1 kamera dan 1 preset style sebelum melakukan export!", "fa-triangle-exclamation", "var(--orange)"); return; }
+            document.getElementById('progress-overlay').style.display = 'flex'; document.getElementById('progress-fill').style.width = '0%'; document.getElementById('progress-text').innerText = '0%';
+            if(typeof sketchup !== 'undefined') sketchup.export_cameras([arr, styles, activeRes, document.getElementById('export-aa').checked]); 
+        }
+
+        function updateProgress(pct) { document.getElementById('progress-fill').style.width = pct + '%'; document.getElementById('progress-text').innerText = pct + '%'; }
+        function exportComplete(count, path) { document.getElementById('progress-overlay').style.display = 'none'; document.getElementById('success-overlay').style.display = 'flex'; document.getElementById('success-desc').innerText = `${count} Image berhasil diexport.`; }
+
+        document.addEventListener("DOMContentLoaded", () => { if(typeof sketchup !== 'undefined') sketchup.get_init_data(); syncRatios(); });
+    
+        // NEW TABS LOGIC
+        let swapMode = 'object';
+        function setSwapMode(mode) {
+            swapMode = mode;
+            document.getElementById('swap-env-obj').className = (mode === 'object' ? 'env-box active' : 'env-box');
+            document.getElementById('swap-env-mat').className = (mode === 'material' ? 'env-box active' : 'env-box');
+        }
+
+        function handleFileSelect(e, type) {
+            const file = e.target.files[0];
+            if(!file) return;
+            processFile(file, type);
+        }
+
+        function handleDrop(e, type) {
+            e.preventDefault();
+            let el = document.getElementById('swap-ref-drop-zone');
+            if(type === 'motion') el = document.getElementById('motion-placeholder'); // since both drop zones point to the same now
+            if(type === 'swap-main') el = document.getElementById('swap-placeholder');
+            if(el) el.style.borderColor = 'var(--border)';
+            const file = e.dataTransfer.files[0];
+            if(file && file.type.startsWith('image/')) {
+                processFile(file, type);
+            }
+        }
+
+        function processFile(file, type) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                if(type === 'motion') {
+                    const img = document.getElementById('motion-preview-img');
+                    img.src = e.target.result;
+                    img.style.display = 'block';
+                    document.getElementById('motion-drop-text').style.display = 'none';
+                    document.getElementById('motion-drop-zone').querySelector('i').style.display = 'none';
+                } else if(type === 'swap-ref') {
+                    const img = document.getElementById('swap-ref-preview');
+                    img.src = e.target.result;
+                    img.style.display = 'block';
+                    document.getElementById('swap-ref-text').style.display = 'none';
+                    document.getElementById('swap-ref-drop-zone').querySelector('i').style.display = 'none';
+                } else if(type === 'swap-main') {
+                    document.getElementById('swap-placeholder').style.display = 'none';
+                    document.getElementById('swap-canvas-container').style.display = 'flex';
+                    const mainImg = document.getElementById('swap-img-before');
+                    mainImg.onload = function() { initSwapCanvas(); };
+                    mainImg.src = e.target.result;
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        let isDrawingSwap = false;
+        let swapCanvas = null;
+        let swapCtx = null;
+        
+        function initSwapCanvas() {
+            const img = document.getElementById('swap-img-before');
+            if(!img || img.clientWidth === 0) return;
+            swapCanvas = document.getElementById('swap-canvas');
+            swapCtx = swapCanvas.getContext('2d');
+            swapCanvas.width = img.clientWidth;
+            swapCanvas.height = img.clientHeight;
+            swapCanvas.style.width = img.clientWidth + 'px';
+            swapCanvas.style.height = img.clientHeight + 'px';
+            swapCtx.lineCap = 'round';
+            swapCtx.lineJoin = 'round';
+            swapCtx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            swapCtx.lineWidth = document.getElementById('swap-brush-size').value;
+        }
+
+        function startDrawSwap(e) {
+            if(!swapCtx) return;
+            isDrawingSwap = true;
+            swapCtx.beginPath();
+            swapCtx.moveTo(e.offsetX, e.offsetY);
+        }
+
+        function drawSwap(e) {
+            if(!isDrawingSwap || !swapCtx) return;
+            swapCtx.lineTo(e.offsetX, e.offsetY);
+            swapCtx.stroke();
+        }
+
+        function stopDrawSwap() {
+            isDrawingSwap = false;
+        }
+
+        function clearSwapCanvas() {
+            if(swapCtx && swapCanvas) swapCtx.clearRect(0, 0, swapCanvas.width, swapCanvas.height);
+        }
+
+        function saveSwapResult() {
+            const img = document.getElementById('swap-img-after');
+            if(!img || !img.src || img.style.display === 'none') {
+                showToast("Belum Ada Hasil", "Generate Magic Swap dulu sebelum save.");
+                return;
+            }
+            const a = document.createElement('a');
+            a.href = img.src;
+            a.download = 'apaya-swap-result.png';
+            a.click();
+        }
+
+        function saveMotionResult() {
+            const vid = document.getElementById('motion-video');
+            if(!vid || !vid.src || vid.style.display === 'none') {
+                showToast("Belum Ada Hasil", "Generate Motion dulu sebelum save.");
+                return;
+            }
+            const a = document.createElement('a');
+            a.href = vid.src;
+            a.download = 'apaya-motion-result.mp4';
+            a.click();
+        }
+
+        function triggerMotionGenerate() {
+            const key = document.getElementById('license-key-input').value.trim().toUpperCase();
+            if(key.startsWith('FREE-') || key.startsWith('TRIAL-')) {
+                showApayaModal('Akses Ditolak', 'Fitur Motion (Video) eksklusif untuk lisensi Premium (Starter/Pro/Studio). Silakan Top Up untuk mengaktifkan.', 'fa-lock', 'var(--danger)');
+                return;
+            }
+
+            const img = document.getElementById('motion-preview-img');
+            if(!img.src || img.src === window.location.href) {
+                showToast("Error", "Pilih atau drag & drop gambar dulu.");
+                return;
+            }
+            if(parseInt(document.getElementById('ui-credit-balance').innerText.replace(/[^0-9]/g, '')) < 3) {
+                showToast("Kredit Habis", "Kredit tidak cukup (Butuh 3 Cr). Silakan Top Up.");
+                return;
+            }
+            const prompt = document.getElementById('motion-prompt').value;
+            const btnText = document.getElementById('btn-motion-text');
+            document.getElementById('motion-loading-overlay').style.display = 'flex';
+            document.getElementById('btn-generate-motion').disabled = true;
+            btnText.innerText = 'GENERATING...';
+
+            sketchup.generate_motion(img.src, prompt);
+        }
+
+        function triggerSwapGenerate() {
+            const refImg = document.getElementById('swap-ref-preview');
+            const mainImg = document.getElementById('swap-img-before');
+            if(!refImg.src || refImg.src === window.location.href) {
+                showToast("Error", "Pilih gambar referensi pengganti dulu.");
+                return;
+            }
+            if(!mainImg.src || mainImg.src === window.location.href) {
+                showToast("Error", "Kirim gambar ke kanvas dulu.");
+                return;
+            }
+            if(parseInt(document.getElementById('ui-credit-balance').innerText.replace(/[^0-9]/g, '')) < 1) {
+                showToast("Kredit Habis", "Kredit tidak cukup (Butuh 1 Cr). Silakan Top Up.");
+                return;
+            }
+
+            const maskCanvas = document.createElement('canvas');
+            maskCanvas.width = swapCanvas.width; maskCanvas.height = swapCanvas.height;
+            const mCtx = maskCanvas.getContext('2d');
+            mCtx.fillStyle = '#000000'; mCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+            mCtx.drawImage(swapCanvas, 0, 0); 
+
+            const maskData = maskCanvas.toDataURL('image/png');
+            document.getElementById('swap-loading-overlay').style.display = 'flex';
+            document.getElementById('btn-generate-swap').disabled = true;
+
+            const prompt = swapMode === 'object' ? 'ganti object yang dilingkari menjadi image B' : 'ganti material pada object yang dilingkari user menjadi image B';
+            sketchup.generate_magic_swap(mainImg.src, maskData, refImg.src, prompt);
+        }
+
+        function onMotionSuccess(videoUrl) {
+            document.getElementById('motion-loading-overlay').style.display = 'none';
+            document.getElementById('btn-generate-motion').disabled = false;
+            document.getElementById('btn-motion-text').innerText = 'GENERATE HD 5s (3 Cr)';
+            document.getElementById('motion-placeholder').style.display = 'none';
+            
+            const vid = document.getElementById('motion-video');
+            vid.src = videoUrl;
+            vid.style.display = 'block';
+            vid.load();
+            vid.play().catch(e => console.log("Autoplay prevented:", e));
+            showToast("Motion Selesai", "Video berhasil digenerate!");
+            if(typeof sketchup !== 'undefined') sketchup.get_init_data();
+        }
+
+        function onSwapSuccess(imgUrl) {
+            document.getElementById('swap-loading-overlay').style.display = 'none';
+            document.getElementById('btn-generate-swap').disabled = false;
+            
+            const afterImg = document.getElementById('swap-img-after');
+            afterImg.src = imgUrl;
+            afterImg.style.display = 'block';
+            showToast("Magic Swap Selesai", "Gambar berhasil diubah!");
+            if(typeof sketchup !== 'undefined') sketchup.get_init_data();
+        }
+
+        function onMotionSwapFailed(errorMsg) {
+            document.getElementById('motion-loading-overlay').style.display = 'none';
+            document.getElementById('swap-loading-overlay').style.display = 'none';
+            document.getElementById('btn-generate-motion').disabled = false;
+            document.getElementById('btn-motion-text').innerText = 'GENERATE HD 5s (3 Cr)';
+            document.getElementById('btn-generate-swap').disabled = false;
+            showToast("Error", errorMsg || "Gagal menggenerate.");
+        }
+
+        // ==========================================
+        // UPSCALE TAB LOGIC
+        // ==========================================
+        var upscaleSourceB64 = '';
+
+        function handleUpscaleFileSelect(e) {
+            var file = e.target.files[0];
+            if(!file) return;
+            var reader = new FileReader();
+            reader.onload = function(ev) {
+                upscaleSourceB64 = ev.target.result.split(',')[1];
+                document.getElementById('upscale-preview-thumb').src = ev.target.result;
+                document.getElementById('upscale-preview-thumb').style.display = 'block';
+                document.getElementById('upscale-drop-text').style.display = 'none';
+                document.getElementById('up-img-before').src = ev.target.result;
+                document.getElementById('up-img-before').style.display = 'block';
+                document.getElementById('upscale-placeholder').style.display = 'none';
+                document.getElementById('up-ba-container').style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function handleUpscaleDrop(e) {
+            e.preventDefault();
+            document.getElementById('upscale-drop-zone').style.borderColor = 'var(--border)';
+            var file = e.dataTransfer.files[0];
+            if(file && file.type.startsWith('image/')) {
+                var reader = new FileReader();
+                reader.onload = function(ev) {
+                    upscaleSourceB64 = ev.target.result.split(',')[1];
+                    document.getElementById('upscale-preview-thumb').src = ev.target.result;
+                    document.getElementById('upscale-preview-thumb').style.display = 'block';
+                    document.getElementById('upscale-drop-text').style.display = 'none';
+                    document.getElementById('up-img-before').src = ev.target.result;
+                    document.getElementById('up-img-before').style.display = 'block';
+                    document.getElementById('upscale-placeholder').style.display = 'none';
+                    document.getElementById('up-ba-container').style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function triggerUpscaleGenerate() {
+            const key = document.getElementById('license-key-input').value.trim().toUpperCase();
+            if(key.startsWith('FREE-') || key.startsWith('TRIAL-')) {
+                showApayaModal('Akses Ditolak', 'Fitur Upscale 4K eksklusif untuk lisensi Premium (Starter/Pro/Studio). Silakan Top Up untuk mengaktifkan.', 'fa-lock', 'var(--danger)');
+                return;
+            }
+            if(!upscaleSourceB64) {
+                showApayaModal('Gambar Kosong', 'Upload gambar atau pilih dari Render History terlebih dahulu.', 'fa-image', 'var(--orange)');
+                return;
+            }
+            document.getElementById('btn-generate-upscale').disabled = true;
+            document.getElementById('upscale-loading-overlay').style.display = 'flex';
+            document.getElementById('upscale-placeholder').style.display = 'none';
+            if(typeof sketchup !== 'undefined') sketchup.generate_upscale(upscaleSourceB64);
+        }
+
+        function showUpscaleResult(url) {
+            document.getElementById('upscale-loading-overlay').style.display = 'none';
+            document.getElementById('btn-generate-upscale').disabled = false;
+            document.getElementById('upscale-placeholder').style.display = 'none';
+            document.getElementById('up-ba-container').style.display = 'block';
+            var after = document.getElementById('up-img-after');
+            after.src = url;
+            after.style.display = 'block';
+            document.getElementById('up-ba-slider').style.display = 'block';
+            document.getElementById('up-ba-handle').style.display = 'block';
+            document.getElementById('up-ba-slider').value = 50;
+            after.style.clipPath = 'inset(0 0 0 50%)';
+            document.getElementById('up-ba-handle').style.left = '50%';
+            showToast('Upscale Selesai', 'Gambar berhasil di-upscale ke 4K!');
+        }
+
+        function updateUpscaleBASlider(val) {
+            document.getElementById('up-img-after').style.clipPath = 'inset(0 0 0 ' + val + '%)';
+            document.getElementById('up-ba-handle').style.left = val + '%';
+        }
+
+        function saveUpscaleResult() {
+            var afterImg = document.getElementById('up-img-after');
+            if(!afterImg.src || afterImg.style.display === 'none') { showToast('Error', 'Belum ada hasil upscale.'); return; }
+            if(typeof sketchup !== 'undefined') sketchup.save_to_gallery(afterImg.src);
+        }
+
+                function loadMotionHistory(btn) {
+            if(btn) { const icon = btn.querySelector('i'); icon.classList.add('fa-spin'); setTimeout(() => icon.classList.remove('fa-spin'), 800); }
+            const listDiv = document.getElementById('motion-thumb-list'); listDiv.innerHTML = '';
+            const conceptImg = document.getElementById('img-after').src; const renderImg = document.getElementById('r-img-after').src; let added = false;
+            if(renderImg && renderImg.length > 500 && !renderImg.includes('localhost')) { listDiv.appendChild(createMotionThumbCard('Final_Render_Current', renderImg)); added = true; }
+            if(conceptImg && conceptImg.length > 500 && !conceptImg.includes('localhost')) { listDiv.appendChild(createMotionThumbCard('Concept_Current', conceptImg)); added = true; }
+            if(!added) listDiv.innerHTML = '<p style="color:var(--text-muted); font-size: 11px; text-align: center; margin-top: 20px;">Belum ada hasil render. Generate dulu di Tab Concept / Render.</p>';
+        }
+
+        function createMotionThumbCard(name, src) {
+            const card = document.createElement('div'); card.className = 'thumb-card';
+            card.onclick = () => {
+                document.querySelectorAll('#motion-thumb-list .thumb-card').forEach(c => c.classList.remove('active')); card.classList.add('active');
+                document.getElementById('motion-drop-text').style.display = 'none';
+                document.getElementById('motion-drop-zone').querySelector('i').style.display = 'none';
+                const mImg = document.getElementById('motion-preview-img');
+                mImg.style.display = 'block';
+                mImg.src = src;
+            };
+            card.innerHTML = `<div class="thumb-img-box" style="overflow:hidden;"><img src="${src}" style="width:100%; height:100%; object-fit:cover;"></div><div class="thumb-info"><span class="thumb-name">${name}</span><span style="font-size:9px; color:var(--primary); font-weight:bold;">Ready to Animate</span></div>`;
+            return card;
+        }
+
+        function loadUpscaleHistory(btn) {
+            if(btn) { var icon = btn.querySelector('i'); icon.classList.add('fa-spin'); setTimeout(function(){ icon.classList.remove('fa-spin'); }, 800); }
+            var listDiv = document.getElementById('upscale-thumb-list');
+            listDiv.innerHTML = '<p style="color:var(--text-muted); font-size: 11px; text-align: center;">Gunakan tombol upload atau drag gambar.</p>';
+        }
+
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

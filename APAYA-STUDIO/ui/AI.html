@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --bg-main: #0d0f14; --bg-panel: #161821; --border: #2a2d3d;
+            --text-main: #e2e4e9; --text-muted: #8b8d9c; --primary: #FACC15;
+            --orange: #FB923C; --secondary: #1f2235; --danger: #f87171;
+        }
+        * { box-sizing: border-box; }
+        body { background: var(--bg-main); color: var(--text-main); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-main); }
+        ::-webkit-scrollbar-thumb { background: #3a3d52; border-radius: 4px; }
+        
+        /* TABS & SIDEBAR */
+        .left-tabs { width: 85px; background: var(--bg-panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding-top: 25px; gap: 15px; flex-shrink: 0; }
+        .tab-icon { width: 60px; height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; color: var(--text-muted); border-radius: 12px; transition: 0.3s; }
+        .tab-icon.active { color: var(--primary); border: 1px solid var(--primary); background: rgba(250, 204, 21, 0.05); }
+        .tab-icon i { font-size: 20px; }
+        .tab-icon span { font-size: 8px; font-weight: bold; margin-top: 6px; text-transform: uppercase; text-align: center; letter-spacing: 0.5px; }
+        
+        .sidebar { width: 280px; background: var(--bg-main); border-right: 1px solid var(--border); padding: 25px 20px; display: flex; flex-direction: column; flex-shrink: 0; }
+        .sidebar-title { font-size: 10px; font-weight: bold; color: var(--primary); text-transform: uppercase; margin-bottom: 12px; display: block; }
+        
+        /* INPUTS & BUTTONS */
+        .ratio-box { background: var(--bg-panel); border: 1px solid var(--border); padding: 12px; border-radius: 8px; margin-bottom: 20px; }
+        .ratio-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+        .ratio-input { background: var(--bg-main); border: 1px solid var(--border); color: white; padding: 6px; border-radius: 4px; width: 55px; text-align: center; font-size: 12px; outline: none; }
+        .ratio-input:focus { border-color: var(--primary); }
+        .btn-make { flex: 1; background: transparent; border: 1px solid var(--primary); color: var(--primary); padding: 6px; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold; transition: 0.2s;}
+        .btn-make:hover { background: var(--primary); color: black; }
+        
+        .btn-sidebar { width: 100%; padding: 10px; background: var(--bg-panel); border: 1px solid var(--border); color: var(--text-main); border-radius: 6px; text-align: left; margin-bottom: 8px; cursor: pointer; font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: 0.2s;}
+        .btn-sidebar:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* MAIN CONTENT & TABS */
+        .main-container { flex: 1; display: flex; flex-direction: column; padding: 25px; overflow: hidden; position: relative; }
+        .tab-content { display: none; height: 100%; flex-direction: column; animation: fadeIn 0.3s ease; }
+        .tab-content.active { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* TAB 1: CAMERA MANAGER */
+        .table-container { flex: 1; overflow-y: auto; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 15px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #13141c; color: var(--primary); font-size: 10px; padding: 12px; text-align: left; position: sticky; top: 0; z-index: 5;}
+        td { padding: 12px; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--text-main); }
+        tr:hover { background: rgba(250, 204, 21, 0.05); }
+        .clear-icon { display: none; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-muted); transition: 0.2s; font-size: 14px;}
+        .clear-icon:hover { color: var(--primary); }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; color: black; }
+        .badge.landscape { background: var(--primary); }
+        .badge.portrait { background: var(--orange); }
+        .icon-btn { background: transparent; border: 1px solid var(--border); width: 30px; height: 30px; border-radius: 4px; color: var(--text-muted); cursor:pointer; margin-right: 4px; transition:0.2s;}
+        .icon-btn:hover { color: var(--primary); border-color: var(--primary); }
+        .icon-btn.delete:hover { color: var(--danger); border-color: var(--danger); }
+        .bottom-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) 300px; gap: 20px; height: 260px; flex-shrink: 0;}
+        .panel { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; }
+        .mode-grid { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); gap: 10px; flex: 1; min-height: 0;}
+        .mode-box { border: 1px solid var(--border); border-radius: 6px; padding: 10px; text-align: center; cursor: pointer; background: var(--bg-main); position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: 0.2s;}
+        .mode-box.active { background: rgba(250, 204, 21, 0.15); border-color: var(--primary); }
+        .mode-box input { position: absolute; opacity: 0; }
+        .mode-box i { font-size: 20px; margin-bottom: 5px; color: var(--text-muted); transition: 0.2s;}
+        .mode-box.active i { color: var(--primary); }
+        .mode-box span { font-size: 10px; font-weight: bold; }
+        .res-grid { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); gap: 10px; flex: 1; min-height: 0;}
+        .res-card { background: var(--bg-main); border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; padding: 10px 0; min-height: 0;}
+        .res-card.active { border-color: var(--primary); background: rgba(250, 204, 21, 0.1); }
+        .res-card .label { font-weight: 900; font-size: 18px; color: var(--text-muted); transition: 0.2s;}
+        .res-card.active .label { color: var(--primary); }
+        .res-card .pixels { font-size: 10px; font-family: monospace; color: var(--text-muted); margin-top: 5px; }
+        .btn-export { width: 100%; background: var(--primary); color: #000; padding: 15px; font-weight: 900; border-radius: 8px; border: none; cursor: pointer; margin-top: auto; font-size: 14px; transition: 0.3s;}
+        .btn-export:hover { background: var(--orange); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(251, 146, 60, 0.4); }
+        .btn-danger { background: var(--danger); }
+        .btn-danger:hover { background: #ef4444; box-shadow: 0 5px 15px rgba(248, 113, 113, 0.4); }
+
+        /* TAB 4: AI CONCEPT ASSISTANT */
+        .ai-grid { display: grid; grid-template-columns: 350px 1fr; gap: 20px; height: 100%; }
+        .ai-form { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; }
+        .ai-input { width: 100%; background: var(--bg-main); border: 1px solid var(--border); color: white; padding: 12px; border-radius: 6px; font-size: 13px; outline: none; margin-bottom: 20px; font-family: inherit;}
+        .ai-input:focus { border-color: var(--primary); }
+        .ai-preview-box { background: var(--bg-main); border: 1px dashed var(--border); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+        .ai-preview-img { max-width: 100%; max-height: 100%; object-fit: contain; display: none; }
+        .range-slider { width: 100%; accent-color: var(--primary); cursor: pointer; }
+
+        /* MODALS */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(13, 15, 20, 0.9); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
+        .modal-box { background: var(--bg-panel); padding: 30px; border-radius: 12px; border: 1px solid var(--primary); text-align: center; width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+        .modal-box.danger-box { border-color: var(--danger); }
+        .modal-box.warning-box { border-color: var(--primary); }
+        .input-box-modal { width: 100%; background: var(--bg-main); border: 1px solid var(--border); color: white; padding: 12px; border-radius: 6px; font-size: 14px; outline: none; margin-bottom: 20px; text-align: center; }
+        .input-box-modal:focus { border-color: var(--primary); }
+        .progress-track { width: 100%; background: #0d0f14; height: 12px; border-radius: 6px; margin: 20px 0; overflow: hidden; border: 1px solid var(--border); }
+        .progress-fill { width: 0%; height: 100%; background: var(--primary); transition: width 0.3s; }
+    </style>
+</head>
+<body>
+    <nav class="left-tabs">
+        <div class="tab-icon active" onclick="switchTab('tab-camera', this)"><i class="fa-solid fa-camera"></i><span>Camera</span></div>
+        <div class="tab-icon" onclick="switchTab('tab-render', this)"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Render</span></div>
+        <div class="tab-icon" onclick="switchTab('tab-mat', this)"><i class="fa-solid fa-chess-board"></i><span>Material</span></div>
+        <div class="tab-icon" onclick="switchTab('tab-concept', this)"><i class="fa-solid fa-brain"></i><span>Concept</span></div>
+    </nav>
+
+    <aside class="sidebar">
+        <div style="text-align: center; margin-bottom: 30px; border-bottom: 1px solid var(--border); padding-bottom: 15px;">
+            <img src="../assets/logo_apaya.png" alt="Apaya Logo" style="max-width: 100px; margin-bottom: 10px;" onerror="this.style.display='none'">
+            <h2 style="color: var(--primary); margin: 0; letter-spacing: 1px;">APAYA STUDIO</h2>
+        </div>
+        <div class="sidebar-section">
+            <span class="sidebar-title">Custom Ratio Creator</span>
+            <div class="ratio-box">
+                <div class="ratio-row">
+                    <input type="number" id="inp-pt" class="ratio-input" value="0.8" step="0.1" onchange="syncRatios()">
+                    <button class="btn-make" onclick="makeCam('portrait')">MAKE PORTRAIT</button>
+                </div>
+                <div class="ratio-row">
+                    <input type="number" id="inp-ls" class="ratio-input" value="1.43" step="0.1" onchange="syncRatios()">
+                    <button class="btn-make" onclick="makeCam('landscape')">MAKE LANDSCAPE</button>
+                </div>
+            </div>
+        </div>
+        <div class="sidebar-section">
+            <span class="sidebar-title">Batch Selection</span>
+            <button class="btn-sidebar" onclick="selectAll(true)"><i class="fa-solid fa-check-double"></i> Select All</button>
+            <button class="btn-sidebar" onclick="selectAll(false)"><i class="fa-solid fa-xmark"></i> Deselect All</button>
+            <button class="btn-sidebar" onclick="deleteSelected()" style="color:var(--danger);"><i class="fa-solid fa-trash"></i> Delete Selected</button>
+        </div>
+    </aside>
+
+    <main class="main-container">
+        <div id="tab-camera" class="tab-content active">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="margin:0;">CAMERA MANAGER</h3>
+                <div style="display:flex; gap: 10px;">
+                    <button class="icon-btn" onclick="sketchup.open_export_folder()" style="color:var(--primary); border-color:var(--primary); width:35px; height:35px;" title="Buka Folder Output"><i class="fa-solid fa-folder-open"></i></button>
+                    <div style="position:relative; display:flex; align-items:center;">
+                        <input type="text" id="search-input" placeholder="Search Camera..." oninput="filterTable(); toggleClearBtn()" style="background:var(--bg-main); border:1px solid var(--border); color:white; padding:8px 35px 8px 15px; border-radius:4px; outline:none; width: 220px; font-size:12px;">
+                        <i class="fa-solid fa-xmark clear-icon" id="clear-search" onclick="clearSearch()" title="Clear Search"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr><th style="width:30px;"><input type="checkbox" id="master-cb" checked onclick="toggleMaster(this)"></th><th>NAME</th><th>TYPE</th><th>RATIO</th><th>RESOLUTION</th><th>ACTION</th></tr>
+                    </thead>
+                    <tbody id="camera-list"></tbody>
+                </table>
+            </div>
+            <div class="bottom-grid">
+                <div class="panel">
+                    <span class="sidebar-title">Style Preset</span>
+                    <div class="mode-grid">
+                        <div class="mode-box active" onclick="toggleMode(this)"><input type="checkbox" class="style-cb" value="EDGE_PROFILE" checked onchange="updateSummary()"><i class="fa-solid fa-cube"></i><span style="font-size: 8.5px;">EDGE_PROFILE</span></div>
+                        <div class="mode-box" onclick="toggleMode(this)"><input type="checkbox" class="style-cb" value="EDGE" onchange="updateSummary()"><i class="fa-solid fa-pencil"></i><span>EDGE</span></div>
+                        <div class="mode-box" onclick="toggleMode(this)"><input type="checkbox" class="style-cb" value="PROFILE" onchange="updateSummary()"><i class="fa-solid fa-border-all"></i><span>PROFILE</span></div>
+                        <div class="mode-box" onclick="toggleMode(this)"><input type="checkbox" class="style-cb" value="CLEAN" onchange="updateSummary()"><i class="fa-solid fa-eraser"></i><span>CLEAN</span></div>
+                    </div>
+                </div>
+                <div class="panel">
+                    <span class="sidebar-title">Resolution Target</span>
+                    <div class="res-grid">
+                        <div class="res-card" id="res-2K" onclick="setRes('2K')"><span class="label">2K</span><span class="pixels" id="px-2K">---</span></div>
+                        <div class="res-card active" id="res-4K" onclick="setRes('4K')"><span class="label">4K</span><span class="pixels" id="px-4K">---</span></div>
+                        <div class="res-card" id="res-5K" onclick="setRes('5K')"><span class="label">5K</span><span class="pixels" id="px-5K">---</span></div>
+                        <div class="res-card" id="res-8K" onclick="setRes('8K')"><span class="label">8K</span><span class="pixels" id="px-8K">---</span></div>
+                    </div>
+                </div>
+                <div class="panel">
+                    <span class="sidebar-title">Export Summary</span>
+                    <div style="font-size:12px; flex:1; padding-top:10px;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:12px; color:var(--text-muted);"><span>Selected Views:</span><span id="sum-cam" style="color:white; font-weight:bold;">0</span></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:12px; color:var(--text-muted);"><span>Total Presets:</span><span id="sum-mode" style="color:white; font-weight:bold;">1</span></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:12px; color:var(--text-muted);"><span>Est. Total Size:</span><span id="sum-size" style="color:var(--primary); font-weight:bold;">~ 0 MB</span></div>
+                        <div style="display:flex; justify-content:space-between; margin-top:20px; font-weight:bold; color:var(--primary); font-size:14px; border-top:1px solid var(--border); padding-top:15px;"><span>Total Files:</span><span id="sum-total">0</span></div>
+                    </div>
+                    <label style="font-size:11px; display:flex; align-items:center; cursor:pointer; margin-bottom:10px; color:var(--text-muted);"><input type="checkbox" id="export-aa" style="accent-color:var(--primary); margin-right:6px;"> Gunakan Anti-Aliasing</label>
+                    <button class="btn-export" onclick="executeExport()">📥 EXPORT BATCH</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-render" class="tab-content">
+            <h3 style="margin-top:0;">✨ FINAL AI RENDER</h3>
+            <div class="ai-preview-box" style="flex:1;"><p style="color:var(--text-muted);">Coming Soon...</p></div>
+        </div>
+
+        <div id="tab-mat" class="tab-content">
+            <h3 style="margin-top:0;">🧱 MATERIAL VILLAIN</h3>
+            <div class="ai-preview-box" style="flex:1;"><p style="color:var(--text-muted);">Coming Soon...</p></div>
+        </div>
+
+        <div id="tab-concept" class="tab-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="margin:0;"><i class="fa-solid fa-brain" style="color:var(--primary); margin-right:8px;"></i> AI CONCEPT ASSISTANT</h3>
+                <div style="background: var(--bg-panel); border: 1px solid var(--border); padding: 5px 12px; border-radius: 4px; font-size: 11px; font-weight:bold;">
+                    <i class="fa-solid fa-bolt" style="color:var(--primary); margin-right:5px;"></i>NANO BANANA 2
+                </div>
+            </div>
+
+            <div class="ai-grid">
+                <div class="ai-form">
+                    <span class="sidebar-title">Style Preset</span>
+                    <select id="ai-style" class="ai-input" style="cursor: pointer;">
+                        <option value="modern_luxury">Modern Luxury (Marmer, Gold)</option>
+                        <option value="japandi">Japandi (Wood, Clean, Warm)</option>
+                        <option value="industrial">Industrial Raw (Beton, Besi)</option>
+                        <option value="tropical">Tropical (Batu Alam, Tanaman)</option>
+                        <option value="custom">-- Custom Style --</option>
+                    </select>
+
+                    <span class="sidebar-title">Custom Design Prompt</span>
+                    <textarea id="ai-prompt" class="ai-input" style="height: 100px; resize: none;" placeholder="Contoh: Dinding panel kayu jati, lantai granit hitam, pencahayaan warm matahari sore..."></textarea>
+
+                    <span class="sidebar-title" style="display: flex; justify-content: space-between;">
+                        Creativity (Denoising) <span id="denoise-val" style="color:var(--primary);">0.65</span>
+                    </span>
+                    <input type="range" id="ai-denoise" class="range-slider" min="0.1" max="1.0" step="0.05" value="0.65" oninput="document.getElementById('denoise-val').innerText = this.value">
+                    <div style="display: flex; justify-content: space-between; font-size: 9px; color: var(--text-muted); margin-top: 5px; margin-bottom: 20px;">
+                        <span>Ikut Model</span>
+                        <span>Liar & Imajinatif</span>
+                    </div>
+
+                    <div style="margin-top: auto; padding: 15px; background: rgba(250, 204, 21, 0.05); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 15px;">
+                        <p style="margin:0; font-size: 11px; color: var(--text-muted); line-height: 1.5;">Mode ini akan mengambil <strong style="color:white;">tangkapan layar otomatis</strong> dari sudut pandang SketchUp Anda saat ini sebagai panduan struktur bangunan.</p>
+                    </div>
+
+                    <button class="btn-export" onclick="triggerAIGenerate()"><i class="fa-solid fa-wand-magic-sparkles"></i> GENERATE CONCEPT</button>
+                </div>
+
+                <div class="ai-preview-box" id="ai-preview-container">
+                    <i class="fa-regular fa-image" id="ai-placeholder-icon" style="font-size: 60px; color: var(--border); margin-bottom: 15px;"></i>
+                    <p id="ai-placeholder-text" style="color: var(--text-muted); font-size: 13px;">Klik 'Generate Concept' untuk memulai proses AI.</p>
+                    <img id="ai-result-img" class="ai-preview-img" src="">
+                    
+                    <div id="ai-loading" style="display:none; flex-direction:column; align-items:center;">
+                        <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 40px; color: var(--primary); margin-bottom: 15px;"></i>
+                        <span style="color: var(--primary); font-weight: bold;">AI Sedang Berpikir...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="rename-overlay" class="modal-overlay">...</div>
+    <div id="delete-overlay" class="modal-overlay">...</div>
+    <div id="warning-overlay" class="modal-overlay">...</div>
+    <div id="progress-overlay" class="modal-overlay">...</div>
+    <div id="success-overlay" class="modal-overlay">...</div>
+
+    <script>
+        // SCRIPT TAB SWITCHER BARU
+        function switchTab(tabId, iconEl) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-icon').forEach(icon => icon.classList.remove('active'));
+            
+            document.getElementById(tabId).classList.add('active');
+            iconEl.classList.add('active');
+
+            // Kalau buka tab AI, kita minta Ruby refresh preview screenshot-nya
+            if(tabId === 'tab-concept') {
+                sketchup.refresh_ai_preview();
+            }
+        }
+
+        // =====================================
+        // LOGIKA AI CONCEPT ASSISTANT
+        // =====================================
+        function triggerAIGenerate() {
+            const style = document.getElementById('ai-style').value;
+            const prompt = document.getElementById('ai-prompt').value;
+            const denoise = document.getElementById('ai-denoise').value;
+
+            // Tampilkan UI Loading
+            document.getElementById('ai-placeholder-icon').style.display = 'none';
+            document.getElementById('ai-placeholder-text').style.display = 'none';
+            document.getElementById('ai-result-img').style.display = 'none';
+            document.getElementById('ai-loading').style.display = 'flex';
+
+            // Tembak Data ke Ruby Backend
+            sketchup.generate_ai_concept([style, prompt, denoise]);
+        }
+
+        function showAIResult(base64Image) {
+            document.getElementById('ai-loading').style.display = 'none';
+            const imgEl = document.getElementById('ai-result-img');
+            imgEl.src = "data:image/png;base64," + base64Image;
+            imgEl.style.display = 'block';
+        }
+
+        // =====================================
+        // SCRIPT LAMA (Camera Manager, dkk) 
+        // (Gw persingkat di sini biar fokus, tetep pake script JS lu yg kemaren ya buat fungsi tabelnya)
+        // =====================================
+        // ... (Fungsi renderTable, updateSummary, executeExport dll ditaruh disini) ...
+    </script>
+</body>
+</html>
