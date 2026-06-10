@@ -1,0 +1,29 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    language_server-protocol (3.17.0.5)
+    logger (1.7.0)
+    prism (1.9.0)
+    rbs (4.0.2)
+      logger
+      prism (>= 1.6.0)
+      tsort
+    ruby-lsp (0.26.9)
+      language_server-protocol (~> 3.17.0)
+      prism (>= 1.2, < 2.0)
+      rbs (>= 3, < 5)
+    sketchup-api-stubs (0.7.11)
+    tsort (0.2.0)
+
+PLATFORMS
+  arm64-darwin-25
+
+DEPENDENCIES
+  ruby-lsp
+  sketchup-api-stubs
+
+RUBY VERSION
+   ruby 3.2.0p0
+
+BUNDLED WITH
+   2.4.1

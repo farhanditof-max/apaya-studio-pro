@@ -19,6 +19,19 @@ APAYA-STUDIO/temp/
 # Git worktrees
 .worktrees/
 
+# macOS metadata
+.DS_Store
+
+# MCP tool data
+.playwright-mcp/
+.serena/
+
+# Dev-only utilities
+APAYA-STUDIO/ui/debug-mock.js
+
+# Planning/AI-generated docs
+docs/
+
 #report config
 docs/apaya-refactor-summary.html
 docs/PRIORITY_FIXES.md 
