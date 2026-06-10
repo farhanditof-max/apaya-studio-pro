@@ -19,11 +19,13 @@ require_relative 'lib/domain/scene_data'
 require_relative 'lib/domain/composition_grid'
 require_relative 'lib/domain/camera'
 require_relative 'lib/domain/export_job'
-require_relative 'lib/logic_camera'
+require_relative 'lib/interface/ui_gateway'
+require_relative 'lib/interface/camera_dialog'
 
 
 module ApayaStudioPro
   extend self
+  include UiGateway
 
   def self.safe_body(res)
     return "" if res.nil? || res.body.nil?
@@ -289,7 +291,7 @@ module ApayaStudioPro
   # POLLING — delegasi ke PollingManager
   # ==============================================================================
   def self.poll_supabase_job(task_id, task_type, _attempts = 0)
-    PollingManager.new(task_id, task_type, @dialog).start
+    PollingManager.new(task_id, task_type, self).start
   end
 
   # ==========================================
@@ -306,7 +308,7 @@ module ApayaStudioPro
   def show_dialog
     if @dialog
       @dialog.bring_to_front
-      js_exec('sketchup.get_init_data();')
+      trigger_init_data
       return
     end
     @dialog = build_dialog
@@ -341,16 +343,6 @@ module ApayaStudioPro
     d.add_action_callback('save_to_gallery')      { |_, v| on_save_to_gallery(v) }
   end
 
-  # Semua execute_script lewat sini — satu titik, mudah di-trace
-  def js_exec(script)
-    @dialog&.execute_script(script)
-  end
-
-  # Semua showApayaModal lewat sini — .to_json mencegah JS injection
-  def js_modal(title, msg, icon, color)
-    js_exec("showApayaModal(#{title.to_json}, #{msg.to_json}, #{icon.to_json}, #{color.to_json});")
-  end
-
   def load_saved_license
     Sketchup.read_default('ApayaAI', 'LicenseKey', '')
   end
@@ -359,12 +351,12 @@ module ApayaStudioPro
   def check_license(credit_cost)
     key = load_saved_license
     if key.empty?
-      js_modal('Lisensi Dibutuhkan', 'Masukkan License Key di menu kiri untuk mulai.', 'fa-key', 'var(--orange)')
+      show_warning('Lisensi Dibutuhkan', 'Masukkan License Key di menu kiri untuk mulai.')
       return nil
     end
     credits = LicenseManager.verify(key)
     if credits.nil? || credits < credit_cost
-      js_modal('Kredit Tidak Cukup', "Saldo tidak mencukupi. Butuh #{credit_cost} kredit.", 'fa-coins', 'var(--danger)')
+      show_error('Kredit Tidak Cukup', "Saldo tidak mencukupi. Butuh #{credit_cost} kredit.")
       return nil
     end
     [key, credits]
@@ -375,11 +367,11 @@ module ApayaStudioPro
     @ratio_ls = Sketchup.read_default('ApayaAI', 'RatioLandscape', 1.43).to_f
     saved_key = load_saved_license
     credits   = (saved_key.empty? ? 0 : LicenseManager.verify(saved_key)) || 0
-    js_exec("document.getElementById('inp-pt').value = #{@ratio_pt}; document.getElementById('inp-ls').value = #{@ratio_ls};")
-    js_exec("setInitLicense(#{saved_key.to_json}, #{credits});")
+    set_ratio_display(@ratio_pt, @ratio_ls)
+    set_init_license(saved_key, credits)
     config = RemoteConfig.fetch
     puts "[🔧 REMOTE CONFIG] show_claim=#{config['show_claim_button']} | enable_ai=#{config['enable_ai_features']}"
-    js_exec("applyRemoteConfig(#{config.to_json});")
+    apply_remote_config(config)
     send_camera_list
   end
 
@@ -394,11 +386,11 @@ module ApayaStudioPro
     credits = LicenseManager.verify(key)
     if credits
       Sketchup.write_default('ApayaAI', 'LicenseKey', key)
-      js_exec("updateCreditDisplay(#{credits});")
-      js_modal('Aktivasi Berhasil', 'Lisensi valid! Sistem siap digunakan.', 'fa-circle-check', 'var(--primary)')
+      update_credit_display(credits)
+      show_success('Aktivasi Berhasil', 'Lisensi valid! Sistem siap digunakan.')
     else
-      js_exec('updateCreditDisplay(0);')
-      js_modal('Lisensi Invalid', 'License Key tidak ditemukan atau salah.', 'fa-xmark', 'var(--danger)')
+      update_credit_display(0)
+      show_error('Lisensi Invalid', 'License Key tidak ditemukan atau salah.')
     end
   end
 
@@ -425,7 +417,7 @@ module ApayaStudioPro
     if @last_export_dir && File.directory?(@last_export_dir)
       UI.openURL("file:///#{@last_export_dir}")
     else
-      js_modal('Folder Kosong', 'Belum ada folder export aktif.', 'fa-folder', 'var(--orange)')
+      show_warning('Folder Kosong', 'Belum ada folder export aktif.')
     end
   end
 
@@ -459,14 +451,14 @@ module ApayaStudioPro
     model.options['PageOptions']['ShowTransition'] = prev_trans
     return unless File.exist?(temp_img_path)
     b64 = Base64.strict_encode64(File.binread(temp_img_path)).gsub("\n", '')
-    js_exec("setBeforeImage(#{b64.to_json});")
+    set_before_image(b64)
   end
 
   def on_generate_ai_concept(params)
     style, full_prompt, denoise, cam_name, mat_board_b64, task_type = params
     temp_img_path = File.join(__dir__, 'temp', "before_#{cam_name}.png")
     unless File.exist?(temp_img_path)
-      js_modal('Error', 'Gambar sumber SketchUp tidak ditemukan!', 'fa-triangle-exclamation', 'var(--danger)')
+      show_error('Error', 'Gambar sumber SketchUp tidak ditemukan!')
       return
     end
     credit_cost = task_type == 'render_4k' ? 2 : 1
@@ -476,7 +468,7 @@ module ApayaStudioPro
     puts "[🚀 APAYA ENGINE] Scene: #{cam_name} | Mode: #{task_type} | Cost: #{credit_cost} Cr"
     UI.start_timer(0.5, false) do
       begin
-        js_exec("updateCreditDisplay(#{credits - credit_cost});")
+        update_credit_display(credits - credit_cost)
         public_url_a = StorageClient.upload_image(temp_img_path, "skp_#{cam_name}_#{Time.now.to_i}.png")
         public_url_b = nil
         if mat_board_b64 && !mat_board_b64.empty?
@@ -485,17 +477,17 @@ module ApayaStudioPro
         if public_url_a
           task_id = AiClient.request_render(key, full_prompt, public_url_a, public_url_b, task_type, style: style, denoise: denoise)
           if task_id == 'ERROR'
-            js_exec("document.getElementById('r-loading-overlay').style.display='none'; document.getElementById('ai-loading-overlay').style.display='none';")
-            js_modal('API Error', 'Gagal memproses ke server. Cek Ruby Console.', 'fa-triangle-exclamation', 'var(--danger)')
-            js_exec("updateCreditDisplay(#{credits});")
+            hide_render_overlays
+            show_error('API Error', 'Gagal memproses ke server. Cek Ruby Console.')
+            update_credit_display(credits)
           else
-            UI.start_timer(3, false) { PollingManager.new(task_id, task_type, @dialog).start }
+            UI.start_timer(3, false) { PollingManager.new(task_id, task_type, self).start }
           end
         end
       rescue => e
         puts "[❌ FATAL ERROR] #{e.message}\n#{e.backtrace.first(3).join("\n")}"
-        js_exec("document.getElementById('r-loading-overlay').style.display='none'; document.getElementById('ai-loading-overlay').style.display='none';")
-        js_modal('System Crash', 'Terjadi kesalahan sistem. Cek Ruby Console!', 'fa-skull', 'var(--danger)')
+        hide_render_overlays
+        show_error('System Crash', 'Terjadi kesalahan sistem. Cek Ruby Console!')
       end
     end
   end
@@ -510,16 +502,16 @@ module ApayaStudioPro
         if public_url_a
           task_id = AiClient.request_render(key, alchemist_prompt, public_url_a, nil, task_type)
           if task_id == 'ERROR'
-            js_exec("document.getElementById('mat-loading-overlay').style.display='none';")
-            js_modal('API Error', 'Gagal memproses ke server. Cek Ruby Console.', 'fa-triangle-exclamation', 'var(--danger)')
+            hide_mat_overlay
+            show_error('API Error', 'Gagal memproses ke server. Cek Ruby Console.')
           else
-            UI.start_timer(3, false) { PollingManager.new(task_id, task_type, @dialog).start }
+            UI.start_timer(3, false) { PollingManager.new(task_id, task_type, self).start }
           end
         end
       rescue => e
         puts "[❌ FATAL ERROR] #{e.message}"
-        js_exec("document.getElementById('mat-loading-overlay').style.display='none';")
-        js_modal('System Crash', 'Terjadi kesalahan sistem. Cek Ruby Console!', 'fa-skull', 'var(--danger)')
+        hide_mat_overlay
+        show_error('System Crash', 'Terjadi kesalahan sistem. Cek Ruby Console!')
       end
     end
   end
@@ -527,25 +519,25 @@ module ApayaStudioPro
   def on_generate_motion(params)
     source_b64, prompt = params
     result = check_license(3)
-    return js_exec("onMotionSwapFailed('Lisensi atau kredit tidak cukup.');") unless result
+    return on_motion_swap_failed('Lisensi atau kredit tidak cukup.') unless result
     key, credits = result
     puts "[🚀 APAYA ENGINE] motion | Cost: 3 Cr"
     UI.start_timer(0.5, false) do
       begin
-        js_exec("updateCreditDisplay(#{credits - 3});")
+        update_credit_display(credits - 3)
         public_url_a = StorageClient.upload_b64(source_b64, "motion_#{Time.now.to_i}.jpg")
         if public_url_a
           task_id = AiClient.request_render(key, prompt, public_url_a, nil, 'motion')
           if task_id == 'ERROR'
-            js_exec("onMotionSwapFailed('Gagal memproses ke server.');")
-            js_exec("updateCreditDisplay(#{credits});")
+            on_motion_swap_failed('Gagal memproses ke server.')
+            update_credit_display(credits)
           else
-            UI.start_timer(3, false) { PollingManager.new(task_id, 'motion', @dialog).start }
+            UI.start_timer(3, false) { PollingManager.new(task_id, 'motion', self).start }
           end
         end
       rescue => e
         puts "[❌ FATAL ERROR] #{e.message}"
-        js_exec("onMotionSwapFailed('Sistem Crash.');")
+        on_motion_swap_failed('Sistem Crash.')
       end
     end
   end
@@ -557,26 +549,26 @@ module ApayaStudioPro
     ref_b64    = parsed['ref']
     prompt     = parsed['prompt']
     result = check_license(1)
-    return js_exec("onMotionSwapFailed('Lisensi atau kredit tidak cukup.');") unless result
+    return on_motion_swap_failed('Lisensi atau kredit tidak cukup.') unless result
     key, credits = result
     puts "[🚀 APAYA ENGINE] magic_swap | Cost: 1 Cr"
     UI.start_timer(0.5, false) do
       begin
-        js_exec("updateCreditDisplay(#{credits - 1});")
+        update_credit_display(credits - 1)
         public_url_a   = StorageClient.upload_b64(source_b64, "swap_main_#{Time.now.to_i}.jpg")
         public_url_ref = StorageClient.upload_b64(ref_b64,    "swap_ref_#{Time.now.to_i}.jpg")
         if public_url_a && public_url_ref
           task_id = AiClient.request_render(key, prompt, public_url_a, public_url_ref, 'magic_swap')
           if task_id == 'ERROR'
-            js_exec("onMotionSwapFailed('Gagal memproses ke server.');")
-            js_exec("updateCreditDisplay(#{credits});")
+            on_motion_swap_failed('Gagal memproses ke server.')
+            update_credit_display(credits)
           else
-            UI.start_timer(3, false) { PollingManager.new(task_id, 'magic_swap', @dialog).start }
+            UI.start_timer(3, false) { PollingManager.new(task_id, 'magic_swap', self).start }
           end
         end
       rescue => e
         puts "[❌ FATAL ERROR] #{e.message}"
-        js_exec("onMotionSwapFailed('Sistem Crash.');")
+        on_motion_swap_failed('Sistem Crash.')
       end
     end
   end
@@ -590,22 +582,22 @@ module ApayaStudioPro
     puts "[🚀 APAYA ENGINE] upscale 4K | Cost: 2 Cr"
     UI.start_timer(0.5, false) do
       begin
-        js_exec("updateCreditDisplay(#{credits - 2});")
+        update_credit_display(credits - 2)
         public_url = StorageClient.upload_b64(source_b64, "upscale_#{Time.now.to_i}.jpg")
         if public_url
           task_id = AiClient.request_render(key, upscale_prompt, public_url, nil, 'upscale')
           if task_id == 'ERROR'
-            js_exec("document.getElementById('upscale-loading-overlay').style.display='none';")
-            js_modal('API Error', 'Gagal memproses ke server. Cek Ruby Console.', 'fa-triangle-exclamation', 'var(--danger)')
-            js_exec("updateCreditDisplay(#{credits});")
+            hide_upscale_overlay
+            show_error('API Error', 'Gagal memproses ke server. Cek Ruby Console.')
+            update_credit_display(credits)
           else
-            UI.start_timer(3, false) { PollingManager.new(task_id, 'upscale', @dialog).start }
+            UI.start_timer(3, false) { PollingManager.new(task_id, 'upscale', self).start }
           end
         end
       rescue => e
         puts "[❌ FATAL ERROR] #{e.message}"
-        js_exec("document.getElementById('upscale-loading-overlay').style.display='none';")
-        js_modal('System Crash', 'Terjadi kesalahan sistem. Cek Ruby Console!', 'fa-skull', 'var(--danger)')
+        hide_upscale_overlay
+        show_error('System Crash', 'Terjadi kesalahan sistem. Cek Ruby Console!')
       end
     end
   end
@@ -624,9 +616,9 @@ module ApayaStudioPro
       else
         File.binwrite(file_path, Base64.decode64(image_data))
       end
-      js_modal('Berhasil Disimpan', "File disimpan di: #{file_path.gsub('\\', '/')}", 'fa-circle-check', 'var(--primary)')
+      show_success('Berhasil Disimpan', "File disimpan di: #{file_path.gsub('\\', '/')}")
     rescue => e
-      js_modal('Gagal Disimpan', "Error: #{e.message}", 'fa-triangle-exclamation', 'var(--danger)')
+      show_error('Gagal Disimpan', "Error: #{e.message}")
     end
   end
 
@@ -638,7 +630,7 @@ module ApayaStudioPro
       aspect = stored ? stored.to_f : 1.0
       { name: p.name.to_s, type: (aspect < 1.0 ? 'PORTRAIT' : 'LANDSCAPE'), aspect: sprintf('%.2f', aspect) }
     end
-    js_exec("updateCameraList(#{cam_data.to_json});")
+    update_camera_list(cam_data)
   end
 
   def create_camera(type, manual_ratio = nil)
@@ -686,7 +678,7 @@ module ApayaStudioPro
       ro['EdgeDisplayMode'] = @export_prev[:edges]
       ro['DrawProfiles']    = @export_prev[:profiles]
       Sketchup.set_status_text("")
-      js_exec("exportComplete(#{@export_job.success_count}, #{@export_job.export_dir.to_json});")
+      export_complete(@export_job.success_count, @export_job.export_dir)
       @export_job = nil
       return
     end
@@ -710,7 +702,7 @@ module ApayaStudioPro
       @export_job.record_success if view.write_image(filepath, w, h, @export_job.aa)
     end
 
-    js_exec("updateProgress(#{@export_job.progress_pct});")
+    update_progress(@export_job.progress_pct)
     Sketchup.set_status_text("Exporting Image #{@export_job.current} of #{@export_job.total}...")
     UI.start_timer(0.1, false) { process_export_action }
   end

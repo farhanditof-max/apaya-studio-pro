@@ -28,10 +28,10 @@ module ApayaStudioPro
       mat-loading-overlay
     ]).uniq.freeze
 
-    def initialize(task_id, task_type, dialog)
+    def initialize(task_id, task_type, gateway)
       @task_id   = task_id.to_s.strip
       @task_type = task_type
-      @dialog    = dialog
+      @gateway   = gateway
       @attempts  = 0
       @active    = true
     end
@@ -100,7 +100,7 @@ module ApayaStudioPro
       unless url
         puts "[CACHE ERROR] #{@task_type}: gagal simpan hasil, tidak bisa deliver"
         hide_overlays
-        @dialog.execute_script("showApayaModal('Gagal Simpan Hasil', 'Disk mungkin penuh. Coba kosongkan ruang penyimpanan.', 'fa-triangle-exclamation', 'var(--danger)');")
+        @gateway.show_error('Gagal Simpan Hasil', 'Disk mungkin penuh. Coba kosongkan ruang penyimpanan.')
         return
       end
       puts "[SUKSES] #{@task_type} selesai: #{url[0..40]}..."
@@ -111,19 +111,19 @@ module ApayaStudioPro
       @active = false
       puts "[GAGAL] Server AI: FAILED status"
       hide_overlays
-      @dialog.execute_script("showApayaModal('Proses Gagal', 'Server AI menolak memproses gambar.', 'fa-triangle-exclamation', 'var(--danger)');")
+      @gateway.show_error('Proses Gagal', 'Server AI menolak memproses gambar.')
     end
 
     def notify_timeout
       @active = false
       puts "[TIMEOUT] 6 menit habis untuk task #{@task_type}"
       hide_overlays
-      @dialog.execute_script("showApayaModal('Timeout', 'Waktu tunggu habis. Server AI mungkin sedang sangat sibuk memproses antrean.', 'fa-clock', 'var(--orange)');")
+      @gateway.show_warning('Timeout', 'Waktu tunggu habis. Server AI mungkin sedang sangat sibuk memproses antrean.')
     end
 
     def hide_overlays
       js = ALL_OVERLAYS.map { |id| "document.getElementById('#{id}').style.display='none';" }.join(' ')
-      @dialog.execute_script(js)
+      @gateway.js_exec(js)
     end
 
     def deliver_result(url)
@@ -134,7 +134,7 @@ module ApayaStudioPro
            else
              "showAIResult(#{safe_url}, #{@task_type.to_json});"
            end
-      @dialog.execute_script(js)
+      @gateway.js_exec(js)
     end
   end
 end
