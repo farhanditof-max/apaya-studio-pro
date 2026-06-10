@@ -25,7 +25,7 @@ require_relative 'lib/interface/camera_dialog'
 
 module ApayaStudioPro
   extend self
-  include UiGateway
+  extend UiGateway
 
   @current_grid_tool = nil
   CURRENT_VERSION = "1.0.0" 
