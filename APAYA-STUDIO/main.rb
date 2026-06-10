@@ -83,6 +83,14 @@ module ApayaStudioPro
     Sketchup.read_default('ApayaAI', 'LicenseKey', '')
   end
 
+  def load_cached_credits
+    Sketchup.read_default('ApayaAI', 'CachedCredits', 0).to_i
+  end
+
+  def save_cached_credits(credits)
+    Sketchup.write_default('ApayaAI', 'CachedCredits', credits.to_i)
+  end
+
   # Guard: cek license + kredit. Return [key, credits] kalau valid, nil kalau blocked.
   def check_license(credit_cost)
     key = load_saved_license
@@ -102,13 +110,27 @@ module ApayaStudioPro
     @ratio_pt = Sketchup.read_default('ApayaAI', 'RatioPortrait', 0.8).to_f
     @ratio_ls = Sketchup.read_default('ApayaAI', 'RatioLandscape', 1.43).to_f
     saved_key = load_saved_license
-    credits   = (saved_key.empty? ? 0 : LicenseManager.verify(saved_key)) || 0
+
+    # Render UI immediately with cached data — zero network wait
+    cached_credits = saved_key.empty? ? 0 : load_cached_credits
     set_ratio_display(@ratio_pt, @ratio_ls)
-    set_init_license(saved_key, credits)
-    config = RemoteConfig.fetch
-    puts "[🔧 REMOTE CONFIG] show_claim=#{config['show_claim_button']} | enable_ai=#{config['enable_ai_features']}"
-    apply_remote_config(config)
+    set_init_license(saved_key, cached_credits)
     send_camera_list
+
+    # Defer HTTP calls by 100ms — lets dialog paint first, stays on main thread
+    UI.start_timer(0.1, false) do
+      begin
+        credits = (saved_key.empty? ? 0 : LicenseManager.verify(saved_key)) || 0
+        save_cached_credits(credits)
+        set_init_license(saved_key, credits)
+
+        config = RemoteConfig.fetch
+        puts "[REMOTE CONFIG] show_claim=#{config['show_claim_button']} | enable_ai=#{config['enable_ai_features']}"
+        apply_remote_config(config)
+      rescue => e
+        puts "[ERROR] on_get_init_data deferred: #{e.message}"
+      end
+    end
   end
 
   def on_update_stored_ratios(data)

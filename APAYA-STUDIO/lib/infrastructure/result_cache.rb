@@ -38,7 +38,8 @@ module ResultCache
     timestamp = Time.now.strftime('%Y%m%d_%H%M%S')
     path      = File.join(CACHE_DIR, "motion_#{timestamp}.mp4")
     uri       = URI(url)
-    Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https') do |http|
+    Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https',
+                    verify_mode: OpenSSL::SSL::VERIFY_NONE) do |http|
       File.binwrite(path, http.get(uri.request_uri).body)
     end
     file_uri(path)
@@ -48,6 +49,10 @@ module ResultCache
   end
 
   def self.file_uri(path)
-    'file:///' + path.gsub('\\', '/') + "?t=#{Time.now.to_i}"
+    # Normalize to forward slashes (Windows backslash → forward slash)
+    normalized = path.gsub('\\', '/')
+    # Mac path starts with '/', Windows with drive letter — build URI accordingly
+    normalized.start_with?('/') ? "file://#{normalized}?t=#{Time.now.to_i}"
+                                : "file:///#{normalized}?t=#{Time.now.to_i}"
   end
 end
