@@ -12,3 +12,14 @@ temp_v*.zip
 # Ignore SketchUp temporary/gallery renders
 APAYA-STUDIO/Apaya_Gallery/
 APAYA-STUDIO/temp/
+
+# Claude Code project config
+.claude/
+
+# Git worktrees
+.worktrees/
+
+#report config
+docs/apaya-refactor-summary.html
+docs/PRIORITY_FIXES.md 
+docs/session-report-20260601-2113.html
