@@ -15,7 +15,10 @@ require_relative 'lib/infrastructure/license_manager'
 require_relative 'lib/infrastructure/storage_client'
 require_relative 'lib/infrastructure/ai_client'
 require_relative 'lib/infrastructure/remote_config'
-require_relative 'lib/export_job'
+require_relative 'lib/domain/scene_data'
+require_relative 'lib/domain/composition_grid'
+require_relative 'lib/domain/camera'
+require_relative 'lib/domain/export_job'
 require_relative 'lib/logic_camera'
 
 
