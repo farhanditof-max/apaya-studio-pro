@@ -303,22 +303,18 @@ PHOTOGRAPHIC REALISM:
     }
     // ==============================================================
 
-    // 2. CEK SALDO LISENSI
-    const { data: licenseData, error: licenseError } = await supabase
-      .from('licenses')
-      .select('credits')
-      .eq('license_key', license_key)
-      .single()
+    // 2. CEK SALDO & POTONG KREDIT — atomic single operation
+    // deduct_credits returns NULL jika kredit tidak cukup atau license tidak ditemukan.
+    // UPDATE WHERE credits >= cost bersifat atomic di PostgreSQL — aman dari race condition.
+    const { data: newCredits, error: deductError } = await supabase
+      .rpc('deduct_credits', { p_key: license_key, p_cost: creditCost })
 
-    if (licenseError || !licenseData) { 
-      return new Response(JSON.stringify({ error: "License tidak valid" }), { status: 401 }) 
+    if (deductError) {
+      return new Response(JSON.stringify({ error: 'Database error saat proses kredit.' }), { status: 500 })
     }
-    if (licenseData.credits < creditCost) { 
-      return new Response(JSON.stringify({ error: `Kredit tidak cukup. Butuh ${creditCost} kredit.` }), { status: 402 }) 
+    if (newCredits === null) {
+      return new Response(JSON.stringify({ error: `Kredit tidak cukup atau license tidak valid. Butuh ${creditCost} kredit.` }), { status: 402 })
     }
-
-    // 3. POTONG SALDO ASLI DI DATABASE
-    await supabase.from('licenses').update({ credits: licenseData.credits - creditCost }).eq('license_key', license_key)
 
     // ==========================================
     // 4. RAKIT PESANAN BUAT KIE.AI
@@ -411,8 +407,8 @@ PHOTOGRAPHIC REALISM:
     const taskId = kieData.data?.taskId ?? kieData.taskId ?? null;
 
     if (responseCode !== 200 || !taskId) {
-        // Refund kredit kalau Kie.ai gagal
-        await supabase.from('licenses').update({ credits: licenseData.credits }).eq('license_key', license_key);
+        // Refund kredit atomic — tambah balik, tidak overwrite nilai saat ini
+        await supabase.rpc('refund_credits', { p_key: license_key, p_cost: creditCost });
         throw new Error("Kie.ai error: " + JSON.stringify(kieData));
     }
 

@@ -23,7 +23,9 @@ serve(async (req) => {
 
     // 1. CREATE PAYMENT ENDPOINT
     if (path === 'create-payment' && req.method === 'POST') {
-      const { license_key, amount, price: clientPrice } = await req.json();
+      const body = await req.json();
+      const license_key = body.license_key?.trim().toUpperCase();
+      const amount = body.amount;
 
       if (!license_key || !amount) {
         return new Response(JSON.stringify({ error: 'Missing license_key or amount' }), {
@@ -32,13 +34,16 @@ serve(async (req) => {
         });
       }
 
-      // Use price from frontend if provided, otherwise fallback to per-credit pricing
-      const price = clientPrice || (amount * 5000);
+      // Harga selalu dihitung server-side — jangan pernah trust price dari client
+      const price = amount * 5000;
 
       // Generate a unique transaction ID to be used as Midtrans order_id
       const transactionId = crypto.randomUUID();
 
-      const midtransUrl = 'https://app.midtrans.com/snap/v1/transactions';
+      const isSandbox = MIDTRANS_SERVER_KEY.startsWith('SB-');
+      const midtransUrl = isSandbox
+        ? 'https://api.sandbox.midtrans.com/snap/v1/transactions'
+        : 'https://app.midtrans.com/snap/v1/transactions';
       const authString = btoa(`${MIDTRANS_SERVER_KEY}:`);
       
       const payload = {
@@ -124,11 +129,10 @@ serve(async (req) => {
       const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
       if (hashHex !== signature_key) {
-        console.error("Invalid Midtrans Signature");
-        // Midtrans test notification might fail if we return 403. Returning 200 prevents retries for bad requests.
-        return new Response(JSON.stringify({ error: 'Invalid signature', detail: 'Signature mismatch' }), {
+        console.error("Invalid Midtrans Signature — possible fake webhook attempt");
+        return new Response(JSON.stringify({ error: 'Invalid signature' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200 
+          status: 400
         });
       }
 
@@ -172,21 +176,8 @@ serve(async (req) => {
           .update({ status: 'settled', updated_at: new Date().toISOString() })
           .eq('id', order_id);
 
-        // 2. Fetch current credits
-        const { data: license, error: licenseError } = await supabase
-          .from('licenses')
-          .select('credits')
-          .eq('license_key', tx.license_key)
-          .single();
-
-        if (license && !licenseError) {
-          const newCredits = (license.credits || 0) + tx.amount;
-          // 3. Update credits
-          await supabase
-            .from('licenses')
-            .update({ credits: newCredits, updated_at: new Date().toISOString() })
-            .eq('license_key', tx.license_key);
-        }
+        // 2. Tambah kredit atomic — tidak pakai read-then-write (race condition)
+        await supabase.rpc('refund_credits', { p_key: tx.license_key, p_cost: tx.amount });
       } else if (newStatus !== tx.status) {
         // Just update status
         await supabase

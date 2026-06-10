@@ -26,6 +26,10 @@ APAYA-STUDIO/temp/
 .playwright-mcp/
 .serena/
 
+# Supabase CLI temp files
+**/supabase/.temp/
+supabase/.temp/
+
 # Dev-only utilities
 APAYA-STUDIO/ui/debug-mock.js
 
