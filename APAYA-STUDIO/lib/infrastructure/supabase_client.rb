@@ -26,11 +26,7 @@ module SupabaseClient
   def safe_body(res)
     return "" if res.nil? || res.body.nil?
     body = res.body
-    is_gzip = false
-    begin
-      is_gzip = (body.length >= 2 && body.getbyte(0) == 0x1F && body.getbyte(1) == 0x8B)
-    rescue
-    end
+    is_gzip = body.length >= 2 && body.getbyte(0) == 0x1F && body.getbyte(1) == 0x8B
     if is_gzip
       begin
         sio = StringIO.new(body)
@@ -50,6 +46,8 @@ module SupabaseClient
     uri  = URI("#{ApayaStudioPro::ApayaConfig.supabase_url}#{path}")
     http = Net::HTTP.new(uri.host, uri.port)
     http.use_ssl     = true
+    # VERIFY_NONE: SketchUp Ruby on Windows lacks access to the system cert store.
+    # Security enforced via Supabase RLS, not SSL cert verification.
     http.verify_mode = OpenSSL::SSL::VERIFY_NONE
     req = build_request(method, uri, opts)
     http.request(req)
@@ -60,8 +58,9 @@ module SupabaseClient
 
   def build_request(method, uri, opts)
     req = (method == :get ? Net::HTTP::Get : Net::HTTP::Post).new(uri)
-    req['apikey']          = ApayaStudioPro::ApayaConfig.supabase_key
-    req['Authorization']   = "Bearer #{ApayaStudioPro::ApayaConfig.supabase_key}"
+    key = ApayaStudioPro::ApayaConfig.supabase_key
+    req['apikey']          = key
+    req['Authorization']   = "Bearer #{key}"
     req['Accept-Encoding'] = 'identity'
     req['Content-Type']    = opts[:content_type] if opts[:content_type]
     req.body               = opts[:body]          if opts[:body]
