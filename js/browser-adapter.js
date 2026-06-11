@@ -85,10 +85,11 @@
     open_export_folder:  function()    { sketchupOnlyGate(); },
     open_cache_folder:   function()    { sketchupOnlyGate(); },
     save_to_gallery:     function()    {},
-    generate_ai_concept: function()    { sketchupOnlyGate(); },
-    request_alchemist:   function()    { sketchupOnlyGate(); },
-    generate_motion:     function()    { sketchupOnlyGate(); },
-    generate_magic_swap: function()    { sketchupOnlyGate(); },
+    generate_ai_concept:  function()    { sketchupOnlyGate(); },
+    refresh_ai_preview:   function()    {},
+    request_alchemist:    function()    { sketchupOnlyGate(); },
+    generate_motion:      function()    { sketchupOnlyGate(); },
+    generate_magic_swap:  function()    { sketchupOnlyGate(); },
   };
 
   window.applyLicenseBrowser = function(key) {
