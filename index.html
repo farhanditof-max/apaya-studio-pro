@@ -392,7 +392,7 @@
 
     <aside class="sidebar">
         <div style="text-align: center; margin-bottom: 25px; border-bottom: 1px solid var(--border); padding-bottom: 15px;">
-            <img src="../assets/logo_apaya.png" alt="Apaya Logo" style="max-width: 100px; margin-bottom: 10px;" onerror="this.style.display='none'">
+            <img src="assets/logo_apaya.png" alt="Apaya Logo" style="max-width: 100px; margin-bottom: 10px;" onerror="this.style.display='none'">
             <h2 style="color: var(--primary); margin: 0; letter-spacing: 1px;">APAYA STUDIO</h2>
         </div>
 
@@ -601,7 +601,7 @@
                         <div class="ba-handle" id="r-ba-handle" style="left: 50%; display:none;"></div>
                     </div>
                     <div class="loading-overlay" id="r-loading-overlay">
-                        <img src="../assets/logo_apaya.png" class="spin-logo">                       <span id="r-loading-text">GENERATING YOUR FINAL IDEA...</span>
+                        <img src="assets/logo_apaya.png" class="spin-logo">                       <span id="r-loading-text">GENERATING YOUR FINAL IDEA...</span>
                     </div>
                 </div>
             </div>
@@ -645,7 +645,7 @@
                     </div>
 
                     <div class="loading-overlay" id="mat-loading-overlay">
-                        <img src="../assets/logo_apaya.png" class="spin-logo">                       <span>EXTRACTING SEAMLESS MATERIAL...</span>
+                        <img src="assets/logo_apaya.png" class="spin-logo">                       <span>EXTRACTING SEAMLESS MATERIAL...</span>
                     </div>
                 </div>
             </div>
@@ -723,7 +723,7 @@
                     </div>
 
                     <div class="loading-overlay" id="ai-loading-overlay">
-                        <img src="../assets/logo_apaya.png" class="spin-logo">                       <span id="loading-text">GENERATING YOUR CONCEPT IDEA...</span>
+                        <img src="assets/logo_apaya.png" class="spin-logo">                       <span id="loading-text">GENERATING YOUR CONCEPT IDEA...</span>
                     </div>
                 </div>
             </div>
@@ -785,7 +785,7 @@
                         <input type="range" min="0" max="100" value="50" class="ba-slider" id="swap-ba-slider" style="display:none; z-index:25; width:100%; height:100%; position:absolute; margin:0; background:transparent; -webkit-appearance:none; appearance:none; outline:none;" oninput="updateSwapBASlider(this.value)">
                         <div class="ba-handle" id="swap-ba-handle" style="left:50%; display:none; z-index:25; position:absolute; top:0; bottom:0; width:4px; background:white; pointer-events:none; transform:translateX(-50%); box-shadow:0 0 10px rgba(0,0,0,0.5);"><div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:24px;height:24px;background:white;border-radius:50%;box-shadow:0 0 10px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-left-right" style="color:var(--primary);font-size:12px;"></i></div></div>
                         <div class="loading-overlay" id="swap-loading-overlay" style="z-index: 30;">
-                            <img src="../assets/logo_apaya.png" class="spin-logo">                           <span id="swap-loading-text">SWAPPING MAGIC...</span>
+                            <img src="assets/logo_apaya.png" class="spin-logo">                           <span id="swap-loading-text">SWAPPING MAGIC...</span>
                         </div>
                     </div>
                 </div>
@@ -835,7 +835,7 @@
                     <video id="motion-video" controls loop autoplay muted style="width: 100%; height: 100%; object-fit: contain; display: none; border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.8); background: #000;"></video>
 
                     <div class="loading-overlay" id="motion-loading-overlay">
-                        <img src="../assets/logo_apaya.png" class="spin-logo">                       <span id="motion-loading-text">RENDERING VIDEO...</span>
+                        <img src="assets/logo_apaya.png" class="spin-logo">                       <span id="motion-loading-text">RENDERING VIDEO...</span>
                     </div>
                 </div>
             </div>
@@ -872,7 +872,7 @@
                         <div class="ba-handle" id="up-ba-handle" style="left: 50%; display:none;"></div>
                     </div>
                     <div class="loading-overlay" id="upscale-loading-overlay">
-                        <img src="../assets/logo_apaya.png" class="spin-logo">
+                        <img src="assets/logo_apaya.png" class="spin-logo">
                         <span id="upscale-loading-text">UPSCALING TO 4K...</span>
                     </div>
                 </div>
@@ -1046,6 +1046,7 @@
         </div>
     </div>
 
+    <script src="js/browser-adapter.js"></script>
     <script>
         let activeProcessTab = 'camera';
         let currentCredits = 0; 
