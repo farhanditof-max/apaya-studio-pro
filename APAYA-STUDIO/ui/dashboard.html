@@ -376,6 +376,23 @@
             50% { transform: scale(1.1) rotate(180deg); opacity: 1; }
             100% { transform: scale(0.8) rotate(360deg); opacity: 0.5; }
         }
+        /* ===== GUIDED TOUR ===== */
+        .tour-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.72); z-index:99990; display:none; pointer-events:auto; }
+        .tour-highlight { outline:3px solid var(--primary) !important; outline-offset:4px; border-radius:6px; position:relative; z-index:99992; }
+        .tour-strict-mode { pointer-events:none !important; user-select:none; overflow:hidden; }
+        .tour-strict-mode #tour-popover,
+        .tour-strict-mode #btn-sidebar-tour,
+        .tour-strict-mode .tour-highlight { pointer-events:auto !important; }
+        #tour-popover { display:none; position:fixed; background:var(--bg-panel); border:1px solid var(--primary); border-radius:12px; padding:20px; width:300px; z-index:99999; box-shadow:0 10px 30px rgba(0,0,0,0.6); flex-direction:column; gap:10px; }
+        #tour-popover h4 { margin:0; color:var(--primary); font-size:15px; }
+        #tour-popover p { margin:0; font-size:12px; color:var(--text-muted); line-height:1.6; }
+        #tour-popover .tour-footer { display:flex; justify-content:space-between; align-items:center; margin-top:10px; gap:8px; }
+        .tour-step-text { font-size:11px; color:var(--text-muted); flex-shrink:0; }
+        #tour-popover button { background:var(--primary); color:#000; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:12px; }
+        #tour-popover .btn-skip { background:transparent; color:var(--text-muted); border:1px solid var(--border); }
+        #btn-sidebar-tour { margin-top:auto; border-top:1px solid var(--border); padding-top:10px; }
+        #btn-sidebar-tour i { color:var(--text-muted); }
+        #btn-sidebar-tour:hover i { color:var(--primary); }
     </style>
     <!-- Midtrans iframe is created dynamically in JS -->
 </head>
@@ -388,6 +405,7 @@
         <div class="tab-icon" onclick="switchTab('tab-swap', this)"><i class="fa-solid fa-shuffle"></i><span>Swap</span></div>
         <div class="tab-icon" onclick="switchTab('tab-motion', this)"><i class="fa-solid fa-film"></i><span>Motion</span></div>
         <div class="tab-icon" onclick="switchTab('tab-upscale', this)"><i class="fa-solid fa-maximize"></i><span>Upscale</span></div>
+        <div class="tab-icon" id="btn-sidebar-tour" onclick="startTourForCurrentTab()" title="Guided Tour"><i class="fa-solid fa-circle-question"></i><span>Tour</span></div>
     </nav>
 
     <aside class="sidebar">
@@ -1098,7 +1116,11 @@
             document.getElementById('ui-credit-balance').innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i>`;
             if(typeof sketchup !== 'undefined') sketchup.verify_license(key);
         }
-        function setInitLicense(key, credits) { document.getElementById('license-key-input').value = key; updateCreditDisplay(credits); }
+        function setInitLicense(key, credits) {
+          document.getElementById('license-key-input').value = key;
+          updateCreditDisplay(credits);
+          checkAndStartTour();
+        }
         function updateCreditDisplay(amount) {
             currentCredits = amount;
             const el = document.getElementById('ui-credit-balance');
@@ -2194,7 +2216,312 @@ CRITICAL INSTRUCTIONS FOR COLOR & TEXTURE FIDELITY:
             document.getElementById('btn-generate-swap').disabled = false;
             showToast("Error", errorMsg || "Gagal menggenerate.");
         }
+        // ===== GUIDED TOUR ENGINE =====
+        let tourSteps = [], tourIndex = 0, tourActive = false;
+        let tourInteractionHandler = null, tourInteractionTarget = null;
+
+        const _svgUri = s => 'data:image/svg+xml,' + encodeURIComponent(s);
+
+        const dummyImages = {
+          skp: _svgUri('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="#1a1d27"/><g stroke="#334155" stroke-width="0.5" fill="none"><line x1="0" y1="60" x2="400" y2="60"/><line x1="0" y1="120" x2="400" y2="120"/><line x1="0" y1="180" x2="400" y2="180"/><line x1="0" y1="240" x2="400" y2="240"/><line x1="80" y1="0" x2="80" y2="300"/><line x1="160" y1="0" x2="160" y2="300"/><line x1="240" y1="0" x2="240" y2="300"/><line x1="320" y1="0" x2="320" y2="300"/></g><polygon points="200,80 280,120 280,200 200,240 120,200 120,120" fill="none" stroke="#60a5fa" stroke-width="2"/><text x="200" y="280" fill="#64748b" font-family="monospace" font-size="11" text-anchor="middle">SketchUp View</text></svg>'),
+          realistic: _svgUri('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#c9a96e"/><stop offset="100%" stop-color="#614a2f"/></linearGradient></defs><rect width="400" height="300" fill="url(#rg)"/><rect x="0" y="200" width="400" height="100" fill="#4a3728"/><rect x="50" y="120" width="80" height="80" fill="#c8a45a" opacity="0.4"/><rect x="270" y="100" width="80" height="100" fill="#c8a45a" opacity="0.4"/><rect x="150" y="140" width="100" height="60" fill="#a0785a" opacity="0.6"/><text x="200" y="280" fill="#f5deb3" font-family="sans-serif" font-size="12" text-anchor="middle" font-weight="bold">AI Render Result</text></svg>'),
+          alchemist: _svgUri('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="#243b55"/><pattern id="tp" width="40" height="40" patternUnits="userSpaceOnUse"><rect width="40" height="40" fill="none" stroke="#344e6e" stroke-width="0.5"/><circle cx="20" cy="20" r="8" fill="none" stroke="#4a6fa5" stroke-width="1"/><line x1="0" y1="20" x2="40" y2="20" stroke="#344e6e" stroke-width="0.3"/><line x1="20" y1="0" x2="20" y2="40" stroke="#344e6e" stroke-width="0.3"/></pattern><rect width="400" height="300" fill="url(#tp)"/><rect x="130" y="90" width="140" height="120" fill="#162032" opacity="0.8"/><text x="200" y="148" fill="#60a5fa" font-family="monospace" font-size="13" text-anchor="middle" font-weight="bold">Alchemist</text><text x="200" y="168" fill="#94a3b8" font-family="monospace" font-size="10" text-anchor="middle">Seamless Texture</text></svg>'),
+          upscale: _svgUri('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="#0f172a"/><rect x="0" y="0" width="200" height="300" fill="#334155" opacity="0.6"/><rect x="200" y="0" width="200" height="300" fill="#1e3a5f"/><g stroke="#60a5fa" stroke-width="0.5" fill="none"><line x1="220" y1="60" x2="380" y2="60"/><line x1="220" y1="120" x2="380" y2="120"/><line x1="220" y1="180" x2="380" y2="180"/><line x1="220" y1="240" x2="380" y2="240"/></g><line x1="200" y1="0" x2="200" y2="300" stroke="#facc15" stroke-width="2"/><text x="100" y="155" fill="#94a3b8" font-family="sans-serif" font-size="11" text-anchor="middle">Original</text><text x="300" y="155" fill="#60a5fa" font-family="sans-serif" font-size="11" text-anchor="middle" font-weight="bold">4K Upscaled</text></svg>')
+        };
+
+        const TAB_IMAGE_MAP = { render: 'realistic', concept: 'realistic', alchemist: 'alchemist', upscale: 'upscale' };
+
+        function insertDummyCamera() {
+          const tbody = document.getElementById('camera-list');
+          if (!tbody || tbody.rows.length > 0) return;
+          tbody.innerHTML = `
+            <tr>
+              <td><input type="checkbox" class="cam-cb" checked></td>
+              <td><span>Living Room View</span></td>
+              <td>Perspective</td>
+              <td>16:9</td>
+              <td>1920×1080</td>
+              <td><button class="icon-btn" style="opacity:0.4" disabled><i class="fa-solid fa-pen"></i></button></td>
+            </tr>`;
+        }
+
+        function setupDummyImage(tab) {
+          const key = TAB_IMAGE_MAP[tab];
+          if (!key) return;
+          if (tab === 'render') {
+            const el = document.getElementById('r-img-before');
+            if (el) { el.src = dummyImages[key]; document.getElementById('r-ba-container').style.display = 'block'; }
+          } else if (tab === 'concept') {
+            const el = document.getElementById('img-before');
+            if (el) { el.src = dummyImages[key]; document.getElementById('ba-container').style.display = 'block'; }
+          } else if (tab === 'alchemist') {
+            const el = document.getElementById('mat-preview-img');
+            if (el) el.src = dummyImages.alchemist;
+          } else if (tab === 'upscale') {
+            const thumb = document.getElementById('upscale-preview-thumb');
+            const dropText = document.getElementById('upscale-drop-text');
+            if (thumb) { thumb.src = dummyImages.realistic; thumb.style.display = 'block'; }
+            if (dropText) dropText.style.display = 'none';
+          }
+        }
+
+        function handleDummyGenerate(tab) {
+          if (tab === 'render') {
+            const overlay = document.getElementById('r-loading-overlay');
+            if (overlay) overlay.style.display = 'flex';
+            setTimeout(() => {
+              if (overlay) overlay.style.display = 'none';
+              const after = document.getElementById('r-img-after');
+              if (after) { after.src = dummyImages.realistic; after.style.display = 'block'; after.style.clipPath = 'inset(0 0 0 50%)'; }
+              const slider = document.getElementById('r-ba-slider');
+              const handle = document.getElementById('r-ba-handle');
+              if (slider) slider.style.display = 'block';
+              if (handle) handle.style.display = 'block';
+              nextTourStep();
+            }, 1200);
+          } else if (tab === 'concept') {
+            const overlay = document.getElementById('ai-loading-overlay');
+            if (overlay) overlay.style.display = 'flex';
+            setTimeout(() => {
+              if (overlay) overlay.style.display = 'none';
+              const after = document.getElementById('img-after');
+              if (after) { after.src = dummyImages.realistic; after.style.display = 'block'; after.style.clipPath = 'inset(0 0 0 50%)'; }
+              nextTourStep();
+            }, 1200);
+          } else if (tab === 'alchemist') {
+            const overlay = document.getElementById('mat-loading-overlay');
+            if (overlay) overlay.style.display = 'flex';
+            setTimeout(() => {
+              if (overlay) overlay.style.display = 'none';
+              nextTourStep();
+            }, 1200);
+          } else if (tab === 'upscale') {
+            const overlay = document.getElementById('upscale-loading-overlay');
+            if (overlay) overlay.style.display = 'flex';
+            setTimeout(() => {
+              if (overlay) overlay.style.display = 'none';
+              document.getElementById('upscale-placeholder').style.display = 'none';
+              const container = document.getElementById('up-ba-container');
+              const before = document.getElementById('up-img-before');
+              const after = document.getElementById('up-img-after');
+              const slider = document.getElementById('up-ba-slider');
+              const handle = document.getElementById('up-ba-handle');
+              if (container) container.style.display = 'block';
+              if (before) before.src = dummyImages.realistic;
+              if (after) { after.src = dummyImages.upscale; after.style.display = 'block'; after.style.clipPath = 'inset(0 0 0 50%)'; }
+              if (slider) slider.style.display = 'block';
+              if (handle) { handle.style.display = 'block'; handle.style.left = '50%'; }
+              nextTourStep();
+            }, 1200);
+          }
+        }
+
+        function checkAndStartTour() {
+          if (!localStorage.getItem('apaya_tour_done')) {
+            switchTab('tab-camera', document.querySelector('.tab-icon'));
+            setTimeout(() => {
+              document.getElementById('welcome-overlay').style.display = 'flex';
+            }, 500);
+          }
+        }
+
+        function startTourForCurrentTab() {
+          if (tourActive) endTour();
+          const activeTab = document.querySelector('.tab-content.active');
+          if (!activeTab) return;
+          const tabId = activeTab.id;
+          const steps = tours[tabId];
+          if (!steps || steps.length === 0) {
+            showToast('Tour', 'Tidak ada panduan untuk tab ini.', 'fa-circle-info');
+            return;
+          }
+          tourSteps = steps;
+          tourIndex = 0;
+          tourActive = true;
+          document.getElementById('tour-overlay').style.display = 'block';
+          document.body.classList.add('tour-strict-mode');
+          showTourStep();
+        }
+
+        function showTourStep() {
+          const step = tourSteps[tourIndex];
+          if (!step) { endTour(); return; }
+
+          document.querySelectorAll('.tour-highlight').forEach(el => el.classList.remove('tour-highlight'));
+
+          // Run action immediately ONLY for non-requireInteraction steps.
+          // requireInteraction steps call action inside click handler to avoid double-trigger.
+          if (step.action && !step.requireInteraction) step.action();
+
+          let targetEl = null;
+          if (step.target) {
+            targetEl = document.querySelector(step.target);
+            if (targetEl) targetEl.classList.add('tour-highlight');
+          }
+
+          document.getElementById('tour-title').textContent = step.title;
+          document.getElementById('tour-desc').textContent = step.desc;
+          document.getElementById('tour-step-indicator').textContent = (tourIndex + 1) + '/' + tourSteps.length;
+
+          const popover = document.getElementById('tour-popover');
+          popover.style.display = 'flex';
+          positionPopover(targetEl);
+
+          const nextBtn = document.getElementById('tour-next-btn');
+          if (tourInteractionHandler && tourInteractionTarget) {
+            tourInteractionTarget.removeEventListener('click', tourInteractionHandler);
+            tourInteractionHandler = null;
+            tourInteractionTarget = null;
+          }
+          if (step.requireInteraction === 'click' && targetEl) {
+            nextBtn.disabled = true;
+            nextBtn.style.opacity = '0.4';
+            nextBtn.textContent = 'Klik target ↑';
+            tourInteractionTarget = targetEl;
+            tourInteractionHandler = () => {
+              nextBtn.disabled = false;
+              nextBtn.style.opacity = '1';
+              nextBtn.textContent = 'Lanjut →';
+              tourInteractionTarget.removeEventListener('click', tourInteractionHandler);
+              tourInteractionTarget = null;
+              tourInteractionHandler = null;
+              if (step.action) step.action();
+            };
+            targetEl.addEventListener('click', tourInteractionHandler);
+          } else {
+            nextBtn.disabled = false;
+            nextBtn.style.opacity = '1';
+            nextBtn.textContent = tourIndex === tourSteps.length - 1 ? 'Selesai ✓' : 'Lanjut →';
+          }
+        }
+
+        function positionPopover(targetEl) {
+          const popover = document.getElementById('tour-popover');
+          if (!targetEl) {
+            popover.style.top = '50%';
+            popover.style.left = '50%';
+            popover.style.transform = 'translate(-50%, -50%)';
+            return;
+          }
+          popover.style.transform = '';
+          const rect = targetEl.getBoundingClientRect();
+          const pw = popover.offsetWidth || 300;
+          const ph = popover.offsetHeight || 160;
+          const gap = 12;
+          let top = rect.bottom + gap;
+          let left = Math.max(8, Math.min(rect.left, window.innerWidth - pw - 8));
+          if (top + ph > window.innerHeight - 8) top = rect.top - ph - gap;
+          if (top < 8) top = 8;
+          popover.style.top = top + 'px';
+          popover.style.left = left + 'px';
+        }
+
+        function nextTourStep() {
+          tourIndex++;
+          if (tourIndex >= tourSteps.length) { endTour(); return; }
+          showTourStep();
+        }
+
+        function endTour() {
+          localStorage.setItem('apaya_tour_done', '1');
+          document.getElementById('tour-overlay').style.display = 'none';
+          document.getElementById('tour-popover').style.display = 'none';
+          document.getElementById('welcome-overlay').style.display = 'none';
+          if (tourActive) {
+            document.querySelectorAll('.tour-highlight').forEach(el => el.classList.remove('tour-highlight'));
+            if (tourInteractionHandler && tourInteractionTarget) {
+              tourInteractionTarget.removeEventListener('click', tourInteractionHandler);
+              tourInteractionHandler = null;
+              tourInteractionTarget = null;
+            }
+          }
+          tourActive = false;
+          document.body.classList.remove('tour-strict-mode');
+        }
+
+        const tours = {
+          'tab-camera': [
+            { title: '📐 Custom Ratio', desc: 'Atur rasio kustom kamera di sini — portrait, landscape, atau ukuran bebas. Pilihan ratio mempengaruhi resolusi output render.', target: '.ratio-box' },
+            { title: '☑️ Batch Selection', desc: 'Centang semua kamera sekaligus untuk batch operation. Pilih beberapa kamera dan export atau hapus dalam satu klik.', target: '#tab-camera table thead' },
+            { title: '📋 Camera List', desc: 'List semua kamera yang ada di SketchUp scene. Klik nama untuk rename, centang untuk pilih, lalu batch export ke AI Render.', target: '.table-container', action: () => insertDummyCamera() },
+            { title: '🎨 Style Preset', desc: 'Pilih gaya visual AI: Realistic, Minimalist, Scandinavian, Tropical, dan lainnya. Style ini dikirim ke AI sebagai bagian dari prompt render.', target: '.mode-grid' },
+            { title: '🖥️ Resolusi Output', desc: 'Pilih resolusi akhir gambar: 2K atau 4K. Resolusi lebih tinggi = hasil lebih detail, namun kredit yang digunakan lebih banyak.', target: '.bottom-grid' },
+            { title: '📤 Export Batch', desc: 'Klik EXPORT BATCH untuk kirim semua kamera yang dipilih ke antrian AI Render. Semua kamera diproses secara berurutan.', target: '#tab-camera .btn-export' }
+          ],
+          'tab-render': [
+            { title: '✨ AI Render', desc: 'Tab Render mengubah kamera SketchUp menjadi foto interior fotorealistis dengan AI. Berikut contoh hasil render yang siap jadi.', target: null, action: () => setupDummyImage('render') },
+            { title: '📷 Load Scene', desc: 'Pertama, klik tombol ini untuk tarik daftar scene aktif dari SketchUp. Pilih satu kamera sebagai input render.', target: '#sidebar-concept .btn-load-scenes', requireInteraction: 'click' },
+            { title: '🛋️ Tipe Ruangan', desc: 'Pilih tipe ruangan: Interior atau Eksterior. Ini mempengaruhi cara AI menginterpretasi pencahayaan dan atmosfer gambar.', target: '#r-env-int', requireInteraction: 'click' },
+            { title: '🎨 Style Render', desc: 'Pilih style visual — Realistic, Minimalist, Tropical, dll. Style ini dikirim ke AI sebagai bagian dari prompt render.', target: '#r-dd-style', requireInteraction: 'click' },
+            { title: '🚀 Generate Render', desc: 'Klik GENERATE untuk mulai proses AI Render. Hasilnya muncul di area preview sebagai perbandingan before/after.', target: '#btn-render-single', requireInteraction: 'click', action: () => { setTimeout(() => handleDummyGenerate('render'), 100); } }
+          ],
+          'tab-concept': [
+            { title: '🧠 AI Concept Art', desc: 'Tab Concept Art menghasilkan ilustrasi desain interior bergaya concept art dari kamera SketchUp. Berikut contoh hasil concept art.', target: null, action: () => setupDummyImage('concept') },
+            { title: '📷 Load Scene', desc: 'Klik Load Active Scenes untuk tarik daftar kamera dari SketchUp. Pilih satu kamera sebagai referensi spatial.', target: '#sidebar-concept .btn-load-scenes', requireInteraction: 'click' },
+            { title: '🛋️ Tipe Ruangan', desc: 'Pilih tipe ruangan: Interior atau Eksterior. Penting untuk konteks pencahayaan dan proporsi dalam hasil concept art.', target: '#env-int', requireInteraction: 'click' },
+            { title: '🎨 Style Concept', desc: 'Pilih style ilustrasi — Wabi Sabi, Mid-Century, Japandi, dll. Style menentukan mood dan estetika visual output AI.', target: '#dd-style', requireInteraction: 'click' },
+            { title: '📝 Generate Concept', desc: 'Klik GENERATE untuk mulai proses AI Concept. Output berupa ilustrasi bergaya concept art, bukan foto realistis.', target: '#btn-concept', requireInteraction: 'click', action: () => { setTimeout(() => handleDummyGenerate('concept'), 100); } }
+          ],
+          'tab-mat': [
+            { title: '🪵 Material Alchemist', desc: 'Material Alchemist mengekstrak tekstur seamless dari foto apapun menggunakan AI. Berikut contoh hasil ekstraksi material siap pakai.', target: null, action: () => setupDummyImage('alchemist') },
+            { title: '✨ Ekstrak Seamless', desc: 'Upload foto material (kayu, batu, kain, dll), lalu klik EKSTRAK SEAMLESS. AI menghasilkan tile yang bisa di-loop tanpa seam.', target: '#btn-extract', requireInteraction: 'click', action: () => { setTimeout(() => handleDummyGenerate('alchemist'), 100); } }
+          ],
+          'tab-swap': [
+            { title: '🔄 Magic Swap', desc: 'Magic Swap mengganti material di area gambar yang kamu pilih menggunakan AI masking. Upload gambar render, mask area, lalu swap.', target: null },
+            { title: '🖱️ Masking Area', desc: 'Gunakan brush tool di toolbar ini untuk mask area yang mau di-swap. Gambar di area yang dibrush akan diganti material baru oleh AI.', target: '.mat-toolbar' },
+            { title: '🚀 Generate Swap', desc: 'Setelah masking selesai dan material dipilih, klik GENERATE. AI akan swap material hanya di area yang sudah di-mask.', target: '#btn-generate-swap' }
+          ],
+          'tab-motion': [
+            { title: '🎥 AI Motion', desc: 'AI Motion mengubah gambar render statis menjadi video animasi singkat 5 detik. Upload gambar hasil render atau pilih dari gallery.', target: null },
+            { title: '🎬 Generate Motion', desc: 'Klik GENERATE untuk buat animasi dari gambar aktif. Proses membutuhkan 1–2 menit. Hasilnya video HD yang bisa didownload langsung.', target: '#btn-generate-motion' }
+          ],
+          'tab-upscale': [
+            { title: '🔍 Apaya Upscale 4K', desc: 'Upscale 4K meningkatkan resolusi gambar hingga 4x lebih tajam menggunakan AI Super Resolution. Berikut contoh perbandingan before/after.', target: null, action: () => setupDummyImage('upscale') },
+            { title: '📤 Upload Gambar', desc: 'Drag & drop gambar ke zone ini, atau klik untuk browse file. Mendukung JPG, PNG, WebP. Bisa juga langsung dari Render History.', target: '#upscale-drop-zone' },
+            { title: '🚀 Start Upscale', desc: 'Klik START UPSCALE 4K untuk proses. Gambar diupscale ke resolusi 4x dari aslinya dengan detail yang jauh lebih tajam.', target: '#btn-generate-upscale', requireInteraction: 'click', action: () => { setTimeout(() => handleDummyGenerate('upscale'), 100); } }
+          ]
+        };
+
     </script>
+
+    <!-- ===== GUIDED TOUR OVERLAYS ===== -->
+    <div id="welcome-overlay" style="display:none; position:fixed; inset:0; z-index:99995; background:rgba(0,0,0,0.88); backdrop-filter:blur(10px); align-items:center; justify-content:center; pointer-events:auto;">
+      <div style="background:var(--bg-panel); border:1px solid var(--primary); border-radius:16px; padding:36px; max-width:460px; width:90%; text-align:center;">
+        <img src="../assets/logo_apaya.png" class="spin-logo" style="width:56px; height:56px; margin-bottom:16px; display:block; margin-left:auto; margin-right:auto;">
+        <h2 style="margin:0 0 8px; color:var(--primary); font-size:18px;">Selamat Datang di Apaya Studio Pro</h2>
+        <p style="color:var(--text-muted); font-size:12px; margin-bottom:24px; line-height:1.6;">Ikuti tour singkat untuk kenali semua fitur AI. Hanya butuh 2–3 menit.</p>
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:24px;">
+          <div style="background:var(--bg-main); border:1px solid var(--border); border-radius:8px; padding:14px 8px;">
+            <i class="fa-solid fa-wand-magic-sparkles" style="color:var(--primary); font-size:18px; display:block; margin-bottom:6px;"></i>
+            <div style="font-size:10px; color:var(--text-muted);">AI Render &amp; Concept</div>
+          </div>
+          <div style="background:var(--bg-main); border:1px solid var(--border); border-radius:8px; padding:14px 8px;">
+            <i class="fa-solid fa-chess-board" style="color:var(--primary); font-size:18px; display:block; margin-bottom:6px;"></i>
+            <div style="font-size:10px; color:var(--text-muted);">Material Alchemist</div>
+          </div>
+          <div style="background:var(--bg-main); border:1px solid var(--border); border-radius:8px; padding:14px 8px;">
+            <i class="fa-solid fa-maximize" style="color:var(--primary); font-size:18px; display:block; margin-bottom:6px;"></i>
+            <div style="font-size:10px; color:var(--text-muted);">Upscale 4K</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button onclick="endTour()" style="flex:1; padding:12px; background:transparent; border:1px solid var(--border); color:var(--text-muted); border-radius:8px; cursor:pointer; font-size:12px;">Lewati</button>
+          <button onclick="document.getElementById('welcome-overlay').style.display='none'; startTourForCurrentTab();" style="flex:2; padding:12px; background:var(--primary); border:none; color:#000; border-radius:8px; cursor:pointer; font-weight:bold; font-size:13px;">Mulai Tour <i class="fa-solid fa-arrow-right"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <div id="tour-overlay" class="tour-overlay"></div>
+
+    <div id="tour-popover">
+      <h4 id="tour-title"></h4>
+      <p id="tour-desc"></p>
+      <div class="tour-footer">
+        <span id="tour-step-indicator" class="tour-step-text">1/6</span>
+        <button class="btn-skip" onclick="endTour()">Skip</button>
+        <button id="tour-next-btn" onclick="nextTourStep()">Lanjut →</button>
+      </div>
+    </div>
 </body>
 </html>
 
