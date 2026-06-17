@@ -15,5 +15,9 @@ module ApayaStudioPro
       puts "[❌ DB ERROR] Cek Lisensi Gagal: #{e.message}"
       nil
     end
+
+    def save(key)
+      Sketchup.write_default('ApayaAI', 'LicenseKey', key.to_s)
+    end
   end
 end

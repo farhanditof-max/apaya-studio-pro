@@ -77,6 +77,7 @@ module ApayaStudioPro
     d.add_action_callback('generate_magic_swap')  { |_, p| on_generate_magic_swap(p) }
     d.add_action_callback('generate_upscale')     { |_, p| on_generate_upscale(p) }
     d.add_action_callback('save_to_gallery')      { |_, v| on_save_to_gallery(v) }
+    d.add_action_callback('apply_license')         { |_, k| on_apply_license(k) }
   end
 
   def load_saved_license
@@ -138,6 +139,13 @@ module ApayaStudioPro
     @ratio_ls = data[1].to_f
     Sketchup.write_default('ApayaAI', 'RatioPortrait', @ratio_pt)
     Sketchup.write_default('ApayaAI', 'RatioLandscape', @ratio_ls)
+  end
+
+  def on_apply_license(key)
+    return unless key.is_a?(String)
+    return unless key.match?(/\AAPAYA-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\z/)
+    LicenseManager.save(key)
+    on_get_init_data
   end
 
   def on_verify_license(key)
