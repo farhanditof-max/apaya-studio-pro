@@ -105,7 +105,7 @@ serve(async (req) => {
       // Generate a unique transaction ID to be used as Midtrans order_id
       const transactionId = crypto.randomUUID();
 
-      const isSandbox = MIDTRANS_SERVER_KEY.startsWith('SB-');
+      const isSandbox = Deno.env.get('MIDTRANS_ENV') === 'sandbox';
       const midtransUrl = isSandbox
         ? 'https://api.sandbox.midtrans.com/snap/v1/transactions'
         : 'https://app.midtrans.com/snap/v1/transactions';
