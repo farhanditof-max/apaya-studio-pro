@@ -2270,6 +2270,7 @@ CRITICAL INSTRUCTIONS FOR COLOR & TEXTURE FIDELITY:
             const overlay = document.getElementById('r-loading-overlay');
             if (overlay) overlay.style.display = 'flex';
             setTimeout(() => {
+              if (!tourActive) { if (overlay) overlay.style.display = 'none'; return; }
               if (overlay) overlay.style.display = 'none';
               const after = document.getElementById('r-img-after');
               if (after) { after.src = dummyImages.realistic; after.style.display = 'block'; after.style.clipPath = 'inset(0 0 0 50%)'; }
@@ -2283,6 +2284,7 @@ CRITICAL INSTRUCTIONS FOR COLOR & TEXTURE FIDELITY:
             const overlay = document.getElementById('ai-loading-overlay');
             if (overlay) overlay.style.display = 'flex';
             setTimeout(() => {
+              if (!tourActive) { if (overlay) overlay.style.display = 'none'; return; }
               if (overlay) overlay.style.display = 'none';
               const after = document.getElementById('img-after');
               if (after) { after.src = dummyImages.realistic; after.style.display = 'block'; after.style.clipPath = 'inset(0 0 0 50%)'; }
@@ -2292,6 +2294,7 @@ CRITICAL INSTRUCTIONS FOR COLOR & TEXTURE FIDELITY:
             const overlay = document.getElementById('mat-loading-overlay');
             if (overlay) overlay.style.display = 'flex';
             setTimeout(() => {
+              if (!tourActive) { if (overlay) overlay.style.display = 'none'; return; }
               if (overlay) overlay.style.display = 'none';
               nextTourStep();
             }, 1200);
@@ -2299,6 +2302,7 @@ CRITICAL INSTRUCTIONS FOR COLOR & TEXTURE FIDELITY:
             const overlay = document.getElementById('upscale-loading-overlay');
             if (overlay) overlay.style.display = 'flex';
             setTimeout(() => {
+              if (!tourActive) { if (overlay) overlay.style.display = 'none'; return; }
               if (overlay) overlay.style.display = 'none';
               document.getElementById('upscale-placeholder').style.display = 'none';
               const container = document.getElementById('up-ba-container');
@@ -2434,9 +2438,27 @@ CRITICAL INSTRUCTIONS FOR COLOR & TEXTURE FIDELITY:
               tourInteractionHandler = null;
               tourInteractionTarget = null;
             }
+            cleanupDummyContent();
           }
           tourActive = false;
           document.body.classList.remove('tour-strict-mode');
+        }
+
+        function cleanupDummyContent() {
+          // Camera table — hapus dummy row, biarkan real rows
+          const tbody = document.getElementById('camera-list');
+          if (tbody && tbody.rows.length > 0) {
+            Array.from(tbody.rows).forEach(row => {
+              const nameCell = row.cells[1];
+              if (nameCell && nameCell.textContent.trim() === 'Living Room View') row.remove();
+            });
+          }
+          // Reset dummy image sources
+          ['r-img-before','r-img-after','img-before','img-after','mat-preview-img',
+           'up-img-before','up-img-after','upscale-preview-thumb'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && (el.src || '').startsWith('data:image/svg+xml')) el.src = '';
+          });
         }
 
         const tours = {
