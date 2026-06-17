@@ -92,7 +92,15 @@ serve(async (req) => {
       }
 
       // Harga selalu dihitung server-side — jangan pernah trust price dari client
-      const price = amount * 5000;
+      // Fixed packages punya harga diskon; PAYG fallback ke amount * 5000
+      const PRICE_MAP: Record<number, number> = { 30: 100000, 50: 150000 };
+      const price = PRICE_MAP[amount] ?? (amount > 0 ? amount * 5000 : null);
+      if (!price) {
+        return new Response(JSON.stringify({ error: 'Invalid amount' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400
+        });
+      }
 
       // Generate a unique transaction ID to be used as Midtrans order_id
       const transactionId = crypto.randomUUID();
