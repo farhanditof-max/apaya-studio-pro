@@ -90,6 +90,7 @@
     request_alchemist:    function()    { sketchupOnlyGate(); },
     generate_motion:      function()    { sketchupOnlyGate(); },
     generate_magic_swap:  function()    { sketchupOnlyGate(); },
+    apply_license:        function(key) { window.applyLicenseBrowser(key); },
   };
 
   window.applyLicenseBrowser = function(key) {
