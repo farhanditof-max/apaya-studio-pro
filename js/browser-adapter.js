@@ -91,6 +91,8 @@
     generate_motion:      function()    { sketchupOnlyGate(); },
     generate_magic_swap:  function()    { sketchupOnlyGate(); },
     apply_license:        function(key) { window.applyLicenseBrowser(key); },
+    update_stored_ratios: function()    {},
+    create_camera:        function()    { sketchupOnlyGate(); },
   };
 
   window.applyLicenseBrowser = function(key) {
