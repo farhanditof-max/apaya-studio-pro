@@ -952,18 +952,6 @@
                 </table>
             </div>
 
-            <!-- EMAIL INPUT — wajib diisi sebelum bayar -->
-            <div style="margin-bottom: 15px;">
-              <label style="font-size:11px; color:var(--text-muted); display:block; margin-bottom:6px;">
-                <i class="fa-solid fa-envelope"></i> Email (untuk kirim license key)
-              </label>
-              <input type="email" id="topup-email-input"
-                placeholder="emailkamu@gmail.com"
-                style="width:100%; background:var(--bg-main); border:1px solid var(--border);
-                       color:white; padding:10px 12px; border-radius:6px; font-size:12px;
-                       outline:none; box-sizing:border-box;">
-            </div>
-
             <!-- PRICING CARDS -->
             <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:15px;">
                 <!-- PAY AS YOU GO -->
@@ -1042,7 +1030,7 @@
 
     <!-- NEW LICENSE MODAL — tampil setelah topup berhasil untuk Unlicensed User -->
     <div id="new-license-modal" class="modal-overlay" style="display:none;">
-      <div class="modal-box" style="border-color: #4ade80; width: 420px;">
+      <div class="modal-box" style="border-color: var(--primary); width: 420px;">
         <i class="fa-solid fa-circle-check" style="font-size:50px; color:#4ade80; margin-bottom:16px;"></i>
         <h3 style="margin-top:0; color:white;">Pembayaran Berhasil!</h3>
         <p style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">
@@ -1216,17 +1204,13 @@
             payKredit(qty, price);
         }
 
-        async function payKredit(amount, price) {
+        let _pendingPayAmount = 0;
+        let _pendingLicenseKey = '';
+
+        function payKredit(amount, price) {
             const licenseKey = document.getElementById('license-key-input').value.trim();
-            const email = document.getElementById('topup-email-input').value.trim();
 
-            if (!email) {
-                showApayaModal("Email Wajib Diisi", "Masukkan email untuk menerima license key.", "fa-envelope", "var(--danger)");
-                return;
-            }
-
-            // Guard: Licensed User yang hapus license key field — cegah generate key baru.
-            // currentCredits > 0 = license pernah terverifikasi di sesi ini.
+            // Guard: licensed user yang hapus key field
             if (!licenseKey && currentCredits > 0) {
                 showApayaModal(
                     "License Key Kosong",
@@ -1237,6 +1221,63 @@
                 return;
             }
 
+            _pendingPayAmount = amount;
+            _pendingLicenseKey = licenseKey;
+
+            const savedEmail = localStorage.getItem('apaya_user_email') || '';
+
+            if (licenseKey && savedEmail) {
+                // Licensed user + email tersimpan → langsung bayar
+                closeTopupModal();
+                execPayment(amount, savedEmail, licenseKey);
+            } else if (licenseKey && !savedEmail) {
+                // Licensed user tapi belum ada saved email (beda device/clear storage)
+                // Prompt sekali, messaging topup
+                closeTopupModal();
+                showEmailPrompt(true);
+            } else {
+                // New user → wajib email untuk kirim license key
+                closeTopupModal();
+                showEmailPrompt(false);
+            }
+        }
+
+        function showEmailPrompt(isTopup) {
+            const title = isTopup
+                ? 'Email untuk konfirmasi topup'
+                : 'Kemana kirim license key?';
+            const desc = isTopup
+                ? 'Konfirmasi kredit dikirim ke email ini setelah pembayaran berhasil.'
+                : 'License key dikirim ke email ini setelah pembayaran berhasil.';
+            const warning = isTopup
+                ? ''
+                : '<p style="font-size:11px; color:var(--danger); margin-bottom:20px;"><i class="fa-solid fa-triangle-exclamation"></i> Pastikan email benar — key tidak bisa dipulihkan tanpa email ini.</p>';
+
+            document.getElementById('email-prompt-title').textContent = title;
+            document.getElementById('email-prompt-desc').textContent = desc;
+            document.getElementById('email-prompt-warning').innerHTML = warning;
+            document.getElementById('email-prompt-input').value = localStorage.getItem('apaya_user_email') || '';
+            document.getElementById('email-prompt-modal').style.display = 'flex';
+        }
+
+        function closeEmailPrompt() {
+            document.getElementById('email-prompt-modal').style.display = 'none';
+        }
+
+        function confirmEmailAndPay() {
+            const email = document.getElementById('email-prompt-input').value.trim();
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!email || !emailRegex.test(email)) {
+                document.getElementById('email-prompt-input').style.borderColor = 'var(--danger)';
+                setTimeout(() => { document.getElementById('email-prompt-input').style.borderColor = 'var(--border)'; }, 1500);
+                return;
+            }
+            localStorage.setItem('apaya_user_email', email);
+            closeEmailPrompt();
+            execPayment(_pendingPayAmount, email, _pendingLicenseKey);
+        }
+
+        async function execPayment(amount, email, licenseKey) {
             showToast("Processing", "Membuat invoice pembayaran...");
             closeTopupModal();
 
@@ -2442,11 +2483,30 @@ CRITICAL INSTRUCTIONS FOR COLOR & TEXTURE FIDELITY:
           const rect = targetEl.getBoundingClientRect();
           const pw = popover.offsetWidth || 300;
           const ph = popover.offsetHeight || 160;
-          const gap = 12;
-          let top = rect.bottom + gap;
-          let left = Math.max(8, Math.min(rect.left, window.innerWidth - pw - 8));
-          if (top + ph > window.innerHeight - 8) top = rect.top - ph - gap;
-          if (top < 8) top = 8;
+          const gap = 14;
+          const vw = window.innerWidth;
+          const vh = window.innerHeight;
+          const margin = 8;
+
+          // Vertical: center-align with target, clamped to screen
+          let top = rect.top + (rect.height / 2) - (ph / 2);
+          top = Math.max(margin, Math.min(top, vh - ph - margin));
+
+          let left;
+          if (rect.right + gap + pw <= vw - margin) {
+            // Prefer: right of target
+            left = rect.right + gap;
+          } else if (rect.left - gap - pw >= margin) {
+            // Fallback: left of target
+            left = rect.left - gap - pw;
+          } else {
+            // Last resort: below or above, centered horizontally under target
+            top = rect.bottom + gap;
+            left = Math.max(margin, Math.min(rect.left, vw - pw - margin));
+            if (top + ph > vh - margin) top = rect.top - ph - gap;
+            if (top < margin) top = margin;
+          }
+
           popover.style.top = top + 'px';
           popover.style.left = left + 'px';
         }
@@ -2536,6 +2596,34 @@ CRITICAL INSTRUCTIONS FOR COLOR & TEXTURE FIDELITY:
         };
 
     </script>
+
+    <!-- ===== EMAIL PROMPT MODAL (new user only) ===== -->
+    <div id="email-prompt-modal" class="modal-overlay" style="display:none; z-index:100001;">
+      <div class="modal-box" style="width:380px; text-align:center;">
+        <i class="fa-solid fa-envelope" style="font-size:40px; color:var(--primary); margin-bottom:16px;"></i>
+        <h3 id="email-prompt-title" style="margin:0 0 8px; color:white;">Kemana kirim license key?</h3>
+        <p id="email-prompt-desc" style="font-size:12px; color:var(--text-muted); margin-bottom:6px; line-height:1.6;">
+          License key dikirim ke email ini setelah pembayaran berhasil.
+        </p>
+        <div id="email-prompt-warning">
+          <p style="font-size:11px; color:var(--danger); margin-bottom:20px;">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            Pastikan email benar — key tidak bisa dipulihkan tanpa email ini.
+          </p>
+        </div>
+        <input type="email" id="email-prompt-input"
+          placeholder="emailkamu@gmail.com"
+          style="width:100%; background:var(--bg-main); border:1px solid var(--border);
+                 color:white; padding:12px; border-radius:6px; font-size:13px;
+                 outline:none; box-sizing:border-box; margin-bottom:16px; text-align:center;">
+        <div style="display:flex; gap:10px;">
+          <button onclick="closeEmailPrompt()" style="flex:1; padding:12px; background:transparent; border:1px solid var(--border); color:var(--text-muted); border-radius:8px; cursor:pointer; font-size:12px;">Batal</button>
+          <button onclick="confirmEmailAndPay()" class="btn-export" style="flex:2; margin:0; padding:12px;">
+            <i class="fa-solid fa-bolt"></i> LANJUT BAYAR
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- ===== GUIDED TOUR OVERLAYS ===== -->
     <div id="welcome-overlay" style="display:none; position:fixed; inset:0; z-index:99995; background:rgba(0,0,0,0.88); backdrop-filter:blur(10px); align-items:center; justify-content:center; pointer-events:auto;">
