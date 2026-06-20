@@ -13,9 +13,14 @@ module ResultCache
 
   def self.save_if_needed(image_url, task_type)
     if image_url.length > 2000
+      # Hasil base64 inline (kadang dipakai sebagian task) → tulis ke .png
       save_base64(image_url, task_type)
-    elsif task_type == 'motion' && image_url.start_with?('http')
-      download_mp4(image_url)
+    elsif image_url.start_with?('http')
+      # Hasil dari Kie.ai berupa URL remote. Download ke lokal supaya:
+      # 1. Tetap ada walau URL Kie.ai expire beberapa hari kemudian
+      # 2. Bisa dipakai ulang untuk swap / motion downstream
+      ext = task_type == 'motion' ? 'mp4' : 'png'
+      download_remote(image_url, task_type, ext)
     else
       image_url
     end
@@ -33,10 +38,10 @@ module ResultCache
     nil
   end
 
-  def self.download_mp4(url)
+  def self.download_remote(url, task_type, ext)
     FileUtils.mkdir_p(CACHE_DIR)
     timestamp = Time.now.strftime('%Y%m%d_%H%M%S')
-    path      = File.join(CACHE_DIR, "motion_#{timestamp}.mp4")
+    path      = File.join(CACHE_DIR, "#{task_type}_#{timestamp}.#{ext}")
     uri       = URI(url)
     Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https',
                     verify_mode: OpenSSL::SSL::VERIFY_NONE) do |http|
@@ -44,7 +49,7 @@ module ResultCache
     end
     file_uri(path)
   rescue => e
-    puts "[DOWNLOAD ERROR] Gagal download mp4: #{e.message}"
+    puts "[DOWNLOAD ERROR] Gagal download #{ext}: #{e.message}"
     nil
   end
 
