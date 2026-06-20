@@ -93,7 +93,8 @@ serve(async (req) => {
 
       // Harga selalu dihitung server-side — jangan pernah trust price dari client
       // Fixed packages punya harga diskon; PAYG fallback ke amount * 5000
-      const PRICE_MAP: Record<number, number> = { 30: 100000, 50: 150000 };
+      // Pricing LOCKED 2026-06-20: Freelancer 30kr @4.500 (disc 10%), Small Studio 50kr @4.000 (disc 20%)
+      const PRICE_MAP: Record<number, number> = { 30: 135000, 50: 200000 };
       const price = PRICE_MAP[amount] ?? (amount > 0 ? amount * 5000 : null);
       if (!price) {
         return new Response(JSON.stringify({ error: 'Invalid amount' }), {
