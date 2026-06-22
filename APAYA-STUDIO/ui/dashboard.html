@@ -707,11 +707,9 @@
         </div>
     </div>
 
+    <script src="modules/state.js"></script>
+    <script src="modules/ui-utils.js"></script>
     <script>
-        let activeProcessTab = 'camera';
-        let currentCredits = 0; 
-        const DUMMY_BEFORE_IMG = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600' style='background:%232a2d3d'%3E%3Ctext x='50%25' y='50%25' fill='%23FACC15' font-size='24' font-family='Arial' text-anchor='middle' dy='.3em'%3EDummy Preview (Belum Render)%3C/text%3E%3C/svg%3E";
-
         function verifyLicense() {
             const key = document.getElementById('license-key-input').value.trim();
             if(!key) { showApayaModal('Error', 'Masukkan License Key!', 'fa-key', 'var(--danger)'); return; }
@@ -731,43 +729,6 @@
                 el.classList.remove('credit-pulse');
                 void el.offsetWidth; // Trigger reflow to restart animation
                 el.classList.add('credit-pulse');
-            }
-        }
-
-        function showToast(title, desc, icon = 'fa-circle-info', color = 'var(--primary)') {
-            const container = document.getElementById('toast-container');
-            if (!container) return;
-            const toast = document.createElement('div');
-            toast.className = 'toast';
-            toast.style.borderLeft = `4px solid ${color}`;
-            toast.innerHTML = `
-                <i class="fa-solid ${icon}" style="color: ${color}"></i>
-                <div class="toast-body">
-                    <div class="toast-title">${title}</div>
-                    <div class="toast-desc">${desc}</div>
-                </div>
-            `;
-            container.appendChild(toast);
-            setTimeout(() => {
-                toast.classList.add('toast-out');
-                toast.addEventListener('animationend', () => {
-                    toast.remove();
-                });
-            }, 4000);
-        }
-
-        function setGeneratingState(isGenerating) {
-            const btnRender = document.getElementById('btn-render-single');
-            const btnConcept = document.getElementById('btn-concept');
-            const btnExtract = document.getElementById('btn-extract');
-            if (isGenerating) {
-                if (btnRender) btnRender.disabled = true;
-                if (btnConcept) btnConcept.disabled = true;
-                if (btnExtract) btnExtract.disabled = true;
-            } else {
-                if (btnRender) btnRender.disabled = false;
-                if (btnConcept) btnConcept.disabled = false;
-                if (btnExtract) btnExtract.disabled = false;
             }
         }
 
@@ -996,16 +957,6 @@
             if (typeof sketchup !== 'undefined') sketchup.apply_license(key);
         }
 
-        function showApayaModal(title, desc, iconClass, iconColor) {
-            document.getElementById('cam-modal-title').innerText = title;
-            document.getElementById('cam-modal-desc').innerText = desc;
-            const icon = document.getElementById('cam-modal-icon');
-            icon.className = "fa-solid " + iconClass;
-            icon.style.color = iconColor || "var(--primary)";
-            document.getElementById('custom-apaya-modal').style.display = 'flex';
-            setGeneratingState(false);
-        }
-
         function switchTab(tabId, iconEl) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-icon').forEach(i => i.classList.remove('active'));
@@ -1022,7 +973,6 @@
             else { document.getElementById('sidebar-manager').style.display = 'flex'; }
         }
 
-        let currentEnvC = "interior"; let currentEnvR = "interior";
         function setEnv(env, isRender = false) {
             const prefix = isRender ? 'r-' : '';
             if(isRender) currentEnvR = env; else currentEnvC = env;
@@ -1056,7 +1006,6 @@
         // =====================================
         // MATERIAL BOARD DRAG & DROP LOGIC
         // =====================================
-        let materialBoardBase64 = "";
         document.addEventListener("DOMContentLoaded", () => {
             const dropZone = document.getElementById('ref-upload-box');
             if(dropZone) {
@@ -1109,7 +1058,6 @@
             reader.readAsDataURL(file);
         }
 
-        let selectedConceptCam = "";
         function loadConceptThumbs(btn) {
             if(btn) { const icon = btn.querySelector('i'); icon.classList.add('fa-spin'); setTimeout(() => icon.classList.remove('fa-spin'), 800); }
             const listDiv = document.getElementById('concept-thumb-list'); listDiv.innerHTML = '';
@@ -1168,9 +1116,6 @@
                 document.getElementById('r-ba-slider').style.display = 'none';
             }
         }
-
-        function updateBASlider(val) { document.getElementById('img-after').style.clipPath = `inset(0 0 0 ${val}%)`; document.getElementById('ba-handle').style.left = val + '%'; }
-        function updateRenderBASlider(val) { document.getElementById('r-img-after').style.clipPath = `inset(0 0 0 ${val}%)`; document.getElementById('r-ba-handle').style.left = val + '%'; }
 
         // =====================================
         // GENERATE CONCEPT & RENDER (API)
@@ -1536,7 +1481,6 @@ CRITICAL INSTRUCTIONS FOR COLOR & TEXTURE FIDELITY:
         // =====================================
         // CAMERA MANAGER INIT
         // =====================================
-        let currentCameras = []; let activeRes = '4K'; let selectedCameras = new Set(); let hasLoadedFirstTime = false; let cameraToRename = ""; let camerasToDelete = [];
         function syncRatios() { const pt = document.getElementById('inp-pt').value; const ls = document.getElementById('inp-ls').value; if(typeof sketchup !== 'undefined') sketchup.update_stored_ratios([pt, ls]); updateSummary(); }
         function makeCam(type) { const ratio = document.getElementById(type === 'portrait' ? 'inp-pt' : 'inp-ls').value; if(typeof sketchup !== 'undefined') sketchup.create_camera([type, ratio]); }
         function updateCameraList(data) { currentCameras = data; if (!hasLoadedFirstTime && data.length > 0) { data.forEach(c => selectedCameras.add(c.name)); hasLoadedFirstTime = true; } renderTable(); }
