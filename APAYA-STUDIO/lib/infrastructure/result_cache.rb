@@ -4,6 +4,7 @@ require 'fileutils'
 require 'base64'
 require 'net/http'
 require 'uri'
+require 'openssl'
 
 # Handles saving AI result ke file lokal.
 # Diperlukan karena SketchUp execute_script() crash kalau string > ~2000 karakter.
@@ -44,7 +45,8 @@ module ResultCache
     path      = File.join(CACHE_DIR, "#{task_type}_#{timestamp}.#{ext}")
     uri       = URI(url)
     Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https',
-                    verify_mode: OpenSSL::SSL::VERIFY_NONE) do |http|
+                    verify_mode: OpenSSL::SSL::VERIFY_NONE,
+                    open_timeout: 15, read_timeout: 60) do |http|
       File.binwrite(path, http.get(uri.request_uri).body)
     end
     file_uri(path)
