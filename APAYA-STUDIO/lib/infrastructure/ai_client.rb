@@ -19,11 +19,17 @@ module ApayaStudioPro
         strength:    denoise
       }.compact
       res = SupabaseClient.post_json('/functions/v1/apaya-generate', payload)
-      return 'ERROR' unless res && [200, 201].include?(res.code.to_i)
+      unless res && [200, 201].include?(res.code.to_i)
+        puts "[❌ EDGE FUNCTION] HTTP #{res&.code} — #{SupabaseClient.safe_body(res).to_s[0..300]}"
+        return 'ERROR'
+      end
       data = JSON.parse(SupabaseClient.safe_body(res)) rescue nil
-      return 'ERROR' unless data&.dig('taskId')
-      puts "[✅ EDGE FUNCTION] Task ID: #{data['taskId']}"
-      data['taskId']
+      unless data&.dig('jobId')
+        puts "[❌ EDGE FUNCTION] No jobId in response — #{SupabaseClient.safe_body(res).to_s[0..300]}"
+        return 'ERROR'
+      end
+      puts "[✅ EDGE FUNCTION] Queue Job ID: #{data['jobId']}"
+      data['jobId'].to_s
     rescue => e
       puts "[❌ HTTP ERROR] #{e.message}"
       'ERROR'

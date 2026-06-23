@@ -386,42 +386,30 @@ PHOTOGRAPHIC REALISM:
 
 
     // ==========================================
-    // 5. SERVER SUPABASE NEMBAK KIE.AI
+    // 5. MASUKKAN KE ANTRIAN — dispatcher yang nembak Kie.ai (max 20/10s)
     // ==========================================
-    const kieRes = await fetch(endpointUrl, {
-      method: "POST", 
-      headers: { 
-        "Content-Type": "application/json", 
-        "Authorization": `Bearer ${kieApiKey}` 
-      }, 
-      body: JSON.stringify(kiePayload)
-    });
+    const { data: queuedJob, error: insertError } = await supabase
+      .from('ai_render_jobs')
+      .insert({
+        status: 'queued',
+        credits: creditCost,
+        license_key: license_key,
+        payload: { kiePayload, endpointUrl }
+      })
+      .select('id')
+      .single();
 
-    const kieData = await kieRes.json();
-    console.log(`[KIE RESPONSE] status=${kieRes.status} | body=${JSON.stringify(kieData)}`);
-
-    // flux-kontext-pro returns { code:200, data:{ taskId } }
-    // jobs/createTask  returns { code:200, data:{ taskId } }
-    // Both should have code===200 and data.taskId — but guard carefully
-    const responseCode = kieData.code ?? kieRes.status;
-    const taskId = kieData.data?.taskId ?? kieData.taskId ?? null;
-
-    if (responseCode !== 200 || !taskId) {
-        // Refund kredit atomic — tambah balik, tidak overwrite nilai saat ini
-        await supabase.rpc('refund_credits', { p_key: license_key, p_cost: creditCost });
-        throw new Error("Kie.ai error: " + JSON.stringify(kieData));
+    if (insertError || !queuedJob) {
+      await supabase.rpc('refund_credits', { p_key: license_key, p_cost: creditCost });
+      throw new Error('Gagal masukkan ke antrian: ' + insertError?.message);
     }
 
-    // 6. SIMPAN TASK_ID KE TABEL ai_render_jobs BUAT DI-POLLING SAMA SKETCHUP
-    await supabase.from('ai_render_jobs').insert([{ 
-        kie_job_id: taskId, 
-        status: 'pending' 
-    }]);
+    console.log(`[QUEUE] Job ${queuedJob.id} queued | task_type=${task_type} | cost=${creditCost}Cr`);
 
-    // 7. BALIKIN STATUS SUCCESS KE SKETCHUP BIAR MULAI POLLING
-    return new Response(JSON.stringify({ success: true, taskId: taskId }), { 
-        headers: { "Content-Type": "application/json" }, 
-        status: 200 
+    // 6. BALIKIN JOB ID KE SKETCHUP BIAR MULAI POLLING DB
+    return new Response(JSON.stringify({ success: true, jobId: queuedJob.id }), {
+        headers: { "Content-Type": "application/json" },
+        status: 200
     });
 
   } catch (err) {
