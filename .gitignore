@@ -33,8 +33,9 @@ supabase/.temp/
 # Dev-only utilities
 APAYA-STUDIO/ui/debug-mock.js
 
-# Planning/AI-generated docs
-docs/
+# Planning/AI-generated docs (ignore semua KECUALI ADR — decision record wajib di VCS)
+docs/*
+!docs/adr/
 
 #report config
 docs/apaya-refactor-summary.html

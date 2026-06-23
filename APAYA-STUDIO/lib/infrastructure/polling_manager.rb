@@ -38,6 +38,11 @@ module ApayaStudioPro
 
     # Entry point — panggil sekali, manager handle sisanya secara async
     def start
+      if @task_id.empty? || @task_id == 'ERROR'
+        puts "[POLLING ERROR] task_id tidak valid: '#{@task_id}' — batalkan polling"
+        handle_failure
+        return
+      end
       fetch_status
     end
 
@@ -58,7 +63,8 @@ module ApayaStudioPro
       end
       @attempts += 1
 
-      url = "#{ApayaConfig.supabase_url}/rest/v1/ai_render_jobs?kie_job_id=eq.#{@task_id}&select=*"
+      url = "#{ApayaConfig.supabase_url}/rest/v1/ai_render_jobs?id=eq.#{@task_id}&select=*"
+      puts "[POLLING URL] #{url}" if @attempts == 1
       req = Sketchup::Http::Request.new(url, Sketchup::Http::GET)
       req.headers['apikey']        = ApayaConfig.supabase_key
       req.headers['Authorization'] = "Bearer #{ApayaConfig.supabase_key}"
@@ -70,7 +76,7 @@ module ApayaStudioPro
 
     def handle_response(res)
       unless [200, 201].include?(res.status_code)
-        puts "[POLLING HTTP ERROR] status: #{res.status_code}"
+        puts "[POLLING HTTP ERROR] status: #{res.status_code} | body: #{res.body.to_s[0..200]}"
         return schedule_next
       end
 
@@ -99,12 +105,16 @@ module ApayaStudioPro
       url = ResultCache.save_if_needed(url, @task_type)
       unless url
         puts "[CACHE ERROR] #{@task_type}: gagal simpan hasil, tidak bisa deliver"
-        hide_overlays
-        @gateway.show_error('Gagal Simpan Hasil', 'Disk mungkin penuh. Coba kosongkan ruang penyimpanan.')
+        on_cache_failure
         return
       end
       puts "[SUKSES] #{@task_type} selesai: #{url[0..40]}..."
       deliver_result(url)
+    end
+
+    def on_cache_failure
+      hide_overlays
+      @gateway.show_error('Gagal Simpan Hasil', 'Disk mungkin penuh. Coba kosongkan ruang penyimpanan.')
     end
 
     def handle_failure
@@ -135,6 +145,41 @@ module ApayaStudioPro
              "showAIResult(#{safe_url}, #{@task_type.to_json});"
            end
       @gateway.js_exec(js)
+    end
+  end
+
+  # Batch-specific poller: success/failure routed to BatchRenderManager via blocks.
+  class BatchPollingManager < PollingManager
+    def initialize(task_id, task_type, gateway, cam_name, on_success, on_failure)
+      super(task_id, task_type, gateway)
+      @cam_name   = cam_name
+      @on_success = on_success
+      @on_failure = on_failure
+    end
+
+    private
+
+    def deliver_result(url)
+      @on_success.call(url)
+    end
+
+    def handle_failure
+      @active = false
+      puts "[BATCH FAIL] #{@cam_name}"
+      hide_overlays
+      @on_failure.call
+    end
+
+    def notify_timeout
+      @active = false
+      puts "[BATCH TIMEOUT] #{@cam_name}"
+      hide_overlays
+      @on_failure.call
+    end
+
+    def on_cache_failure
+      puts "[BATCH CACHE ERROR] #{@cam_name}: gagal simpan hasil"
+      @on_failure.call
     end
   end
 end

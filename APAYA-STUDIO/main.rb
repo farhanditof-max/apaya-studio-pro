@@ -15,6 +15,8 @@ require_relative 'lib/infrastructure/license_manager'
 require_relative 'lib/infrastructure/storage_client'
 require_relative 'lib/infrastructure/ai_client'
 require_relative 'lib/infrastructure/remote_config'
+require_relative 'lib/infrastructure/gemini_client'
+require_relative 'lib/domain/batch_render_manager'
 require_relative 'lib/domain/scene_data'
 require_relative 'lib/domain/composition_grid'
 require_relative 'lib/domain/camera'
@@ -76,8 +78,18 @@ module ApayaStudioPro
     d.add_action_callback('generate_motion')      { |_, p| on_generate_motion(p) }
     d.add_action_callback('generate_magic_swap')  { |_, p| on_generate_magic_swap(p) }
     d.add_action_callback('generate_upscale')     { |_, p| on_generate_upscale(p) }
-    d.add_action_callback('save_to_gallery')      { |_, v| on_save_to_gallery(v) }
-    d.add_action_callback('apply_license')         { |_, k| on_apply_license(k) }
+    d.add_action_callback('save_to_gallery')              { |_, v| on_save_to_gallery(v) }
+    d.add_action_callback('apply_license')                { |_, k| on_apply_license(k) }
+    d.add_action_callback('analyze_scene_with_gemini')    { |_, p| on_analyze_scene_with_gemini(p) }
+    d.add_action_callback('start_batch_render')           { |_, p| on_start_batch_render(p) }
+    d.add_action_callback('append_batch_queue')           { |_, p| on_append_batch_queue(p) }
+    d.add_action_callback('cancel_batch_item')            { |_, p| on_cancel_batch_item(p) }
+  end
+
+  # Sanitize cam_name for use in HTTP URIs (Supabase storage path).
+  # Spaces and special chars cause URI::InvalidURIError.
+  def safe_storage_name(name)
+    name.to_s.gsub(/[^A-Za-z0-9_.-]/, '_')
   end
 
   def load_saved_license
@@ -208,8 +220,8 @@ module ApayaStudioPro
     model.pages.selected_page = page
     ratio = (page.get_attribute('ApayaAI', 'aspect_ratio') || 1.0).to_f
     view.camera.aspect_ratio = ratio
-    w = ratio >= 1.0 ? 1920 : (1920 * ratio).to_i
-    h = ratio >= 1.0 ? (1920 / ratio).to_i : 1920
+    w = ratio >= 1.0 ? 1280 : (720 * ratio).to_i
+    h = ratio >= 1.0 ? (1280 / ratio).to_i : 720
     temp_dir = File.join(__dir__, 'temp')
     FileUtils.mkdir_p(temp_dir)
     temp_img_path = File.join(temp_dir, "before_#{cam_name}.png")
@@ -235,10 +247,11 @@ module ApayaStudioPro
     UI.start_timer(0.5, false) do
       begin
         update_credit_display(credits - credit_cost)
-        public_url_a = StorageClient.upload_image(temp_img_path, "skp_#{cam_name}_#{Time.now.to_i}.png")
+        safe_cam = safe_storage_name(cam_name)
+        public_url_a = StorageClient.upload_image(temp_img_path, "skp_#{safe_cam}_#{Time.now.to_i}.png")
         public_url_b = nil
         if mat_board_b64 && !mat_board_b64.empty?
-          public_url_b = StorageClient.upload_b64(mat_board_b64, "mat_#{cam_name}_#{Time.now.to_i}.jpg")
+          public_url_b = StorageClient.upload_b64(mat_board_b64, "mat_#{safe_cam}_#{Time.now.to_i}.jpg")
         end
         if public_url_a
           task_id = AiClient.request_render(key, full_prompt, public_url_a, public_url_b, task_type, style: style, denoise: denoise)
@@ -388,6 +401,228 @@ module ApayaStudioPro
     end
   end
 
+
+  # ==========================================
+  # AI PROMPT (GEMINI VISION) + BATCH RENDER
+  # ==========================================
+
+  def on_analyze_scene_with_gemini(params)
+    cam_name  = params[0]
+    room_name = params[1]
+
+    img_path = File.join(__dir__, 'temp', "before_#{cam_name}.png")
+    unless File.exist?(img_path)
+      js_exec("showToast('Error', 'Gambar kamera belum tersedia. Klik kamera dulu.')")
+      js_exec("window.onGeminiAnalysisComplete('#{cam_name}', 'failed')")
+      return
+    end
+
+    master_prompt_path = File.join(__dir__, '05_Master_Prompt.md')
+    unless File.exist?(master_prompt_path)
+      js_exec("window.onGeminiAnalysisComplete('#{cam_name}', 'failed')")
+      puts "[GeminiAnalysis] 05_Master_Prompt.md tidak ditemukan"
+      return
+    end
+
+    UI.start_timer(0.1, false) do
+      begin
+        img_base64             = Base64.strict_encode64(File.binread(img_path))
+        master_prompt_template = File.read(master_prompt_path, encoding: 'utf-8')
+
+        response = GeminiClient.analyze(
+          image_base64:           img_base64,
+          room_name:              room_name,
+          master_prompt_template: master_prompt_template
+        )
+
+        if response && response['injected_prompt']
+          @gemini_prompts ||= {}
+          @gemini_prompts[cam_name] = response['injected_prompt']
+          js_exec("window.onGeminiAnalysisComplete(#{cam_name.to_json}, 'success')")
+        else
+          js_exec("window.onGeminiAnalysisComplete(#{cam_name.to_json}, 'failed')")
+        end
+      rescue => e
+        puts "[GeminiAnalysis] #{e.message}"
+        js_exec("window.onGeminiAnalysisComplete(#{cam_name.to_json}, 'failed')")
+      end
+    end
+  end
+
+  def on_start_batch_render(params)
+    begin
+      raw   = params.is_a?(Array) ? params[0] : params
+      data  = JSON.parse(raw)
+      puts "[BATCH] start_batch_render: #{data['cameras']&.length} cams, mode=#{data['prompt_mode']}, res=#{data['resolution']}"
+
+      cam_names     = data['cameras']
+      room_name     = data['room_name']
+      prompt_mode   = data['prompt_mode']
+      manual_prompt = data['manual_prompt']
+      style         = data['style']
+      resolution    = data['resolution']
+      env           = data['env']
+      waktu         = data['waktu']
+
+      unless cam_names.is_a?(Array) && cam_names.length > 0
+        puts "[BATCH] cam_names kosong atau bukan Array, abort"
+        return
+      end
+
+      credit_per = resolution == '4k' ? 2 : 1
+      total_cost = cam_names.length * credit_per
+
+      result = check_license(total_cost)
+      return unless result
+      key, credits = result
+      update_credit_display(credits - total_cost)
+
+      @batch_manager = BatchRenderManager.new
+      @batch_manager.on_status_change do |cam, status, url, before_url|
+        safe_url    = url        ? url.to_json        : 'undefined'
+        safe_before = before_url ? before_url.to_json : 'undefined'
+        js_exec("updateBatchStatus(#{cam.to_json}, '#{status}', #{safe_url}, #{safe_before})")
+      end
+      @batch_manager.on_complete do |stats|
+        js_exec("onBatchComplete(#{stats[:done]}, #{stats[:failed]})")
+        on_get_init_data
+      end
+
+      jobs = cam_names.map do |cam|
+        auto_fallback = JSON.generate({ manual_prompt: '', waktu: waktu || 'siang', env: env || 'interior', lampu: false, kendaraan: '', vegetasi: '' })
+        prompt = case prompt_mode
+                 when 'ai'
+                   gemini_p = @gemini_prompts&.dig(cam).to_s
+                   gemini_p.empty? ? auto_fallback : gemini_p
+                 else
+                   manual_prompt.to_s.empty? ? auto_fallback : manual_prompt
+                 end
+        puts "[BATCH] #{cam}: mode=#{prompt_mode} prompt_len=#{prompt.to_s.length}"
+        { cam_name: cam, room_name: room_name, prompt: prompt,
+          style: style, resolution: resolution, env: env,
+          waktu: waktu, credit_cost: credit_per, license_key: key }
+      end
+      @batch_manager.add_jobs(jobs)
+      process_batch_queue
+    rescue => e
+      puts "[BATCH ERROR] on_start_batch_render: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+      show_error('Batch Render Error', "Gagal memulai batch: #{e.message}")
+    end
+  end
+
+  def process_batch_queue
+    return unless @batch_manager
+    @batch_manager.next_jobs.each do |job|
+      @batch_manager.mark_processing(job[:cam_name])
+      process_single_batch_job(job)
+    end
+  end
+
+  def process_single_batch_job(job)
+    cam_name = job[:cam_name]
+    UI.start_timer(0.2, false) do
+      begin
+        # Switch scene + capture viewport
+        page = Sketchup.active_model.pages[cam_name]
+        unless page
+          @batch_manager.mark_failed(cam_name)
+          process_batch_queue
+          next
+        end
+        model = Sketchup.active_model
+        prev_trans = model.options['PageOptions']['ShowTransition']
+        model.options['PageOptions']['ShowTransition'] = false
+        model.pages.selected_page = page
+        ratio = (page.get_attribute('ApayaAI', 'aspect_ratio') || 1.0).to_f
+        view  = model.active_view
+        view.camera.aspect_ratio = ratio
+        w = ratio >= 1.0 ? 1280 : (720 * ratio).to_i
+        h = ratio >= 1.0 ? (1280 / ratio).to_i : 720
+        temp_dir = File.join(__dir__, 'temp')
+        FileUtils.mkdir_p(temp_dir)
+        img_path = File.join(temp_dir, "before_#{cam_name}.png")
+        write_ok = view.write_image(img_path, w, h, true)
+        model.options['PageOptions']['ShowTransition'] = prev_trans
+        file_size = File.exist?(img_path) ? File.size(img_path) : 0
+        puts "[BATCH] write_image=#{write_ok} | file=#{img_path} | size=#{file_size}b"
+
+        if file_size < 1000
+          puts "[BATCH FAIL] File terlalu kecil (#{file_size}b) — write_image mungkin gagal"
+          @batch_manager.mark_failed(cam_name)
+          process_batch_queue
+          next
+        end
+
+        public_url = StorageClient.upload_image(img_path, "batch/#{safe_storage_name(cam_name)}_#{Time.now.to_i}.png")
+        puts "[BATCH] upload result: #{public_url ? 'OK → ' + public_url[0..60] : 'FAILED (nil)'}"
+        unless public_url
+          @batch_manager.mark_failed(cam_name)
+          process_batch_queue
+          next
+        end
+
+        task_type = job[:resolution] == '4k' ? 'render_4k' : 'render'
+        puts "[BATCH] sending to AI: task_type=#{task_type} style=#{job[:style]} prompt_len=#{job[:prompt].to_s.length}"
+        task_id = AiClient.request_render(job[:license_key], job[:prompt], public_url, nil, task_type, style: job[:style])
+        puts "[BATCH] task_id=#{task_id}"
+
+        if task_id == 'ERROR'
+          @batch_manager.mark_failed(cam_name)
+          process_batch_queue
+          next
+        end
+
+        before_img_url = public_url
+        poller = BatchPollingManager.new(
+          task_id, task_type, self, cam_name,
+          ->(url) {
+            @batch_manager.mark_done(cam_name, url, before_img_url)
+            process_batch_queue
+          },
+          -> {
+            @batch_manager.mark_failed(cam_name)
+            process_batch_queue
+          }
+        )
+        UI.start_timer(3, false) { poller.start }
+      rescue => e
+        puts "[BATCH ERROR] #{cam_name}: #{e.message}"
+        @batch_manager&.mark_failed(cam_name)
+        process_batch_queue
+      end
+    end
+  end
+
+  def on_append_batch_queue(params)
+    return unless @batch_manager
+    data        = JSON.parse(params.is_a?(Array) ? params[0] : params)
+    cam_names   = data['cameras']
+    prompt_mode = data['prompt_mode']
+    manual_prompt = data['manual_prompt']
+
+    key = load_saved_license
+    return if key.empty?
+
+    credit_per = data['resolution'] == '4k' ? 2 : 1
+    jobs = cam_names.map do |cam|
+      prompt = case prompt_mode
+               when 'ai'     then @gemini_prompts&.dig(cam) || ''
+               when 'manual' then manual_prompt
+               else ''
+               end
+      { cam_name: cam, room_name: data['room_name'], prompt: prompt,
+        style: data['style'], resolution: data['resolution'], env: data['env'],
+        waktu: data['waktu'], credit_cost: credit_per, license_key: key }
+    end
+    @batch_manager.add_jobs(jobs)
+    js_exec("appendBatchQueueItems(#{cam_names.to_json})")
+    process_batch_queue
+  end
+
+  def on_cancel_batch_item(params)
+    cam_name = params.is_a?(Array) ? params[0] : params
+    @batch_manager&.cancel_queued(cam_name)
+  end
 
   def send_camera_list
     return unless @dialog
